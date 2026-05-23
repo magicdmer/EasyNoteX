@@ -1,37 +1,22 @@
 # SimpleNote
 
 #### 介绍
-一款简单的记事本程序，主要是自用，代码写的很随便...
+一个支持富文本与表格的桌面笔记软件。
+支持记事本分类、标签页编辑、即时保存，托盘驻留和全局快捷键。
 
-#### 软件架构
-软件架构说明
-
-
-#### 安装教程
-
-1.  xxxx
-2.  xxxx
-3.  xxxx
+#### 预览
+<img width="1338" height="979" alt="image" src="https://github.com/user-attachments/assets/c06c18a1-9314-4449-995f-7918cb33510b" />
 
 #### 使用说明
-
-1.  xxxx
-2.  xxxx
-3.  xxxx
-
-#### 参与贡献
-
-1.  Fork 本仓库
-2.  新建 Feat_xxx 分支
-3.  提交代码
-4.  新建 Pull Request
+1. 双击标签空白处新建标签页
+2. 双击标签改名
+3. 标签右键可以进行新建，改名和删除的操作
+4. 标签页支持左右拖拽改变位置
+5. 如果新建的标签页为空白，关闭标签页会自动删除文件
+6. 记事本下拉框右键可以进行新建，改名，删除操作
+7. 可以设置全局快捷键快捷打开和隐藏该软件，如果需要使用此功能，建议开启最小化和关闭到托盘的两个选项
+8. ctrl+i 插入表格
 
 
-#### 特技
-
-1.  使用 Readme\_XXX.md 来支持不同的语言，例如 Readme\_en.md, Readme\_zh.md
-2.  Gitee 官方博客 [blog.gitee.com](https://blog.gitee.com)
-3.  你可以 [https://gitee.com/explore](https://gitee.com/explore) 这个地址来了解 Gitee 上的优秀开源项目
-4.  [GVP](https://gitee.com/gvp) 全称是 Gitee 最有价值开源项目，是综合评定出的优秀开源项目
-5.  Gitee 官方提供的使用手册 [https://gitee.com/help](https://gitee.com/help)
-6.  Gitee 封面人物是一档用来展示 Gitee 会员风采的栏目 [https://gitee.com/gitee-stars/](https://gitee.com/gitee-stars/)
+#### 交流
+1. QQ群：707119847
