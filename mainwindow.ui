@@ -57,10 +57,21 @@
          </widget>
         </item>
         <item>
-         <widget class="QListWidget" name="listWidgetFile">
+         <widget class="FileTreeWidget" name="treeWidgetFile">
           <property name="contextMenuPolicy">
            <enum>Qt::CustomContextMenu</enum>
           </property>
+          <property name="headerHidden">
+           <bool>true</bool>
+          </property>
+          <property name="indentation">
+           <number>14</number>
+          </property>
+          <column>
+           <property name="text">
+            <string notr="true">1</string>
+           </property>
+          </column>
          </widget>
         </item>
        </layout>
@@ -206,6 +217,13 @@
    </property>
   </action>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>FileTreeWidget</class>
+   <extends>QTreeWidget</extends>
+   <header>filetreewidget.h</header>
+  </customwidget>
+ </customwidgets>
  <resources/>
  <connections/>
 </ui>

@@ -19,20 +19,28 @@ INCLUDEPATH += \
 
 win32:CONFIG(debug,debug|release): {
     LIBS += \
-        cutex/lib/cutex_$${QT_ARCH}_d.lib
+        cutex/lib/cutex_$${QT_ARCH}_d.lib \
+        -lshell32
     QMAKE_CXXFLAGS += /MP
 }
 
 win32:CONFIG(release,debug|release): {
     LIBS += \
-        cutex/lib/cutex_$${QT_ARCH}_r.lib
+        cutex/lib/cutex_$${QT_ARCH}_r.lib \
+        -lshell32
     QMAKE_CXXFLAGS += /MP
+}
+
+unix:!android {
+    LIBS += -L$$PWD/cutex/lib -lcutex_$${QT_ARCH}
 }
 
 SOURCES += \
     aboutdialog.cpp \
+    filetreewidget.cpp \
     finddialog.cpp \
     helpdialog.cpp \
+    helpfunc.cpp \
     main.cpp \
     mainwindow.cpp \
     notewidget.cpp \
@@ -44,8 +52,10 @@ SOURCES += \
 
 HEADERS += \
     aboutdialog.h \
+    filetreewidget.h \
     finddialog.h \
     helpdialog.h \
+    helpfunc.h \
     mainwindow.h \
     notewidget.h \
     renamedialog.h \
@@ -69,7 +79,14 @@ qnx: target.path = /tmp/$${TARGET}/bin
 else: unix:!android: target.path = /opt/$${TARGET}/bin
 !isEmpty(target.path): INSTALLS += target
 
-RC_FILE = EasyNoteX.rc
+win32 {
+    RC_FILE = EasyNoteX.rc
+}
 
 RESOURCES += \
     resource.qrc
+
+contains(CONFIG, sponsor) {
+    DEFINES += ENABLE_SPONSOR
+    RESOURCES += sponsor.qrc
+}

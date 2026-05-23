@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>311</width>
-    <height>323</height>
+    <height>352</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -129,7 +129,7 @@
      <x>20</x>
      <y>210</y>
      <width>271</width>
-     <height>71</height>
+     <height>100</height>
     </rect>
    </property>
    <property name="title">
@@ -145,12 +145,31 @@
      </rect>
     </property>
    </widget>
+   <widget class="QLabel" name="labelShortcutHint">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>28</y>
+      <width>231</width>
+      <height>56</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>uos 下会同步注册到系统快捷键，按下后切换主窗口显示状态。</string>
+    </property>
+    <property name="alignment">
+     <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
+    </property>
+    <property name="wordWrap">
+     <bool>true</bool>
+    </property>
+   </widget>
   </widget>
   <widget class="QPushButton" name="pushButtonOk">
    <property name="geometry">
     <rect>
      <x>60</x>
-     <y>290</y>
+     <y>320</y>
      <width>75</width>
      <height>23</height>
     </rect>
@@ -163,7 +182,7 @@
    <property name="geometry">
     <rect>
      <x>160</x>
-     <y>290</y>
+     <y>320</y>
      <width>75</width>
      <height>23</height>
     </rect>

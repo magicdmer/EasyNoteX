@@ -1,5 +1,6 @@
 ﻿#include "setdialog.h"
 #include "ui_setdialog.h"
+#include "helpfunc.h"
 #include <QDir>
 #include <QIntValidator>
 
@@ -21,7 +22,7 @@ SetDialog::SetDialog(QWidget *parent) :
     ui->comboBox->insertItems(0,sortTypeList);
 
     ui->lineEditTabWidth->setValidator( new QIntValidator(ui->lineEditTabWidth) );
-    m_setting = new QSettings("EasyNote.ini",QSettings::IniFormat,this);
+    m_setting = new QSettings(settingsFile(),QSettings::IniFormat,this);
     m_setting->setIniCodec("UTF-8");
 
     int closeToTray = m_setting->value("close_to_tray", 0).toInt();
@@ -37,6 +38,14 @@ SetDialog::SetDialog(QWidget *parent) :
     ui->checkBoxEscToTray->setChecked(escToTray);
     ui->lineEditTabWidth->setText(QString::number(tabWidth));
     ui->keySequenceEdit->setKeySequence(QKeySequence(shortcut));
+    const bool uos = isUos();
+    ui->keySequenceEdit->setVisible(!uos);
+    ui->labelShortcutHint->setVisible(uos);
+    if (uos)
+    {
+        ui->groupBox_2->setTitle(tr("显示/隐藏主窗口"));
+        ui->labelShortcutHint->setText(tr("uos 下请在控制中心的快捷键设置中手动设置 EasyNoteX 的启动快捷键。"));
+    }
 
     ui->comboBox->setCurrentIndex(sort_type);
 
@@ -55,7 +64,8 @@ void SetDialog::sltButtonOkClicked()
     m_minToTray = ui->checkBoxMiniToTray->isChecked();
     m_escToTray = ui->checkBoxEscToTray->isChecked();
     m_tabWidth = ui->lineEditTabWidth->text().toInt();
-    m_shortcut = ui->keySequenceEdit->keySequence().toString();
+    m_shortcut = ui->keySequenceEdit->isVisible() ? ui->keySequenceEdit->keySequence().toString()
+                                                  : m_setting->value("hotkey").toString();
     m_sort_type = ui->comboBox->currentIndex();
 
     m_setting->setValue("close_to_tray",m_closeToTray);

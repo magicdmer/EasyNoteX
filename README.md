@@ -1,18 +1,37 @@
-# EasyNoteX
+# SimpleNote
 
 #### 介绍
-这是一款简单的富文本记事软件，用来做一些临时记录，记录一些琐碎的东西，支持文字，图片和表格，如图
-<img width="517" height="360" alt="image" src="https://github.com/user-attachments/assets/c7747d85-c781-4b45-b7f4-e1f5c36d5a48" />
+一款简单的记事本程序，主要是自用，代码写的很随便...
+
+#### 软件架构
+软件架构说明
 
 
-### 特点
-1. 单文件，运行后会在当前目录生成data数据文件夹，会自动保存新建的标签页为文件到data目录下，绿色便携
-2. 支持自动清理空白标签页文件，让记录干净简洁
-3. 支持快捷键显示和隐藏界面，方便快速记录
-4. 多标签+文件列表的形式，方便我们查看较多的记录文件，如果只是多标签，文件多了查看起来就比较麻烦了
-5. 支持图片+文字+表格等，笔记存储为单文件 enote，enote为 html格式
+#### 安装教程
 
-### 依赖
-工程编译依赖：https://github.com/magicdmer/cutex 的 `custom` 分支
+1.  xxxx
+2.  xxxx
+3.  xxxx
 
-具体的使用可以参考帮助菜单里面的帮助文档
+#### 使用说明
+
+1.  xxxx
+2.  xxxx
+3.  xxxx
+
+#### 参与贡献
+
+1.  Fork 本仓库
+2.  新建 Feat_xxx 分支
+3.  提交代码
+4.  新建 Pull Request
+
+
+#### 特技
+
+1.  使用 Readme\_XXX.md 来支持不同的语言，例如 Readme\_en.md, Readme\_zh.md
+2.  Gitee 官方博客 [blog.gitee.com](https://blog.gitee.com)
+3.  你可以 [https://gitee.com/explore](https://gitee.com/explore) 这个地址来了解 Gitee 上的优秀开源项目
+4.  [GVP](https://gitee.com/gvp) 全称是 Gitee 最有价值开源项目，是综合评定出的优秀开源项目
+5.  Gitee 官方提供的使用手册 [https://gitee.com/help](https://gitee.com/help)
+6.  Gitee 封面人物是一档用来展示 Gitee 会员风采的栏目 [https://gitee.com/gitee-stars/](https://gitee.com/gitee-stars/)

@@ -7,6 +7,7 @@
 #include <QSettings>
 #include <QFont>
 #include <QListWidgetItem>
+#include <QTreeWidgetItem>
 #include "finddialog.h"
 #include <QSystemTrayIcon>
 #include "qxtglobalshortcut.h"
@@ -29,10 +30,19 @@ enum SortType {
     SORT_BY_MODIFY_DORDER
 };
 
+enum TreeItemKind {
+    ITEM_NOTE = 0,
+    ITEM_GROUP = 1
+};
+
+enum {
+    ITEM_KIND_ROLE = Qt::UserRole + 10
+};
+
 class MyListWidgetItem : public QListWidgetItem
 {
 public:
-    MyListWidgetItem(QListWidget *parent=0):QListWidgetItem(parent){}
+    MyListWidgetItem(QListWidget *parent=0):QListWidgetItem(parent), m_sort_type(SORT_BY_NAME){}
     bool operator<(const QListWidgetItem &other) const
     {
         bool ret = false;
@@ -96,7 +106,7 @@ protected:
 
 public slots:
     void sltActionFontClick();
-    void sltLeftDoubleClicked(QListWidgetItem *item);
+    void sltTreeItemDoubleClicked(QTreeWidgetItem *item, int column);
     void sltRemoveTab(int index);
     void sltTabDoubleClicked(int index);
     void sltActionFind();
@@ -125,6 +135,12 @@ public slots:
     void sltListMenuRequested(const QPoint &pos);
     void sltListActionMove();
     void sltTabActionMove();
+    void sltGroupActionNew();
+    void sltGroupActionRename();
+    void sltGroupActionDelete();
+    void sltGroupActionNewNote();
+    void sltListActionGroupMove();
+    void sltNoteDropped(QTreeWidgetItem* noteItem, const QString& targetGroup);
     void sltActionInsertTable();
     void sltDarkMode();
     void sltSetFontColor();
@@ -132,12 +148,25 @@ public slots:
 
 public:
     bool find(QString& text,QTextDocument::FindFlags flags);
-    void newTab();
+    void newTab(const QString& groupName = QString());
     void renameTab(int tabIndex, QString& newName);
     void save();
     void initNoteBook();
     void refreshMenu();
     void sortFileList();
+    bool applyGlobalShortcut(const QString& shortcut, bool showErrorMessage);
+    void restoreWindowPlacement();
+    void closeAllTabs();
+    void keepTreeAlwaysActive();
+    void moveNoteToGroup(QTreeWidgetItem* item, const QString& targetGroup);
+    QStringList listGroups() const;
+    QTreeWidgetItem* findGroupItem(const QString& groupName) const;
+    QTreeWidgetItem* findNoteItem(const QString& groupName, const QString& noteName) const;
+    QString currentGroup() const;
+    static QString tabKey(const QString& groupName, const QString& noteName);
+    QTreeWidgetItem* addNoteItem(const QString& groupName, const QString& noteName,
+                                 uint createTime, uint modifyTime);
+    QTreeWidgetItem* addGroupItem(const QString& groupName);
 
 private:
     Ui::MainWindow *ui;
@@ -165,8 +194,17 @@ private:
     QMenu* m_listMenu;
     QAction* m_list_action_delete;
     QMenu* m_listMoveMenu;
+    QMenu* m_listGroupMoveMenu;
     QMenu* m_tabMoveMenu;
+    QMenu* m_groupMenu;
+    QMenu* m_blankMenu;
+    QAction* m_group_action_new_note;
+    QAction* m_group_action_rename;
+    QAction* m_group_action_delete;
+    QAction* m_blank_action_new_note;
+    QAction* m_blank_action_new_group;
     SetTableDialog* m_tableDlg;
     SortType m_sort_type;
+    bool m_isUos;
 };
 #endif // MAINWINDOW_H

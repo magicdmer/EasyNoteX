@@ -1,5 +1,6 @@
 ﻿#include "mainwindow.h"
 #include "ui_mainwindow.h"
+#include "helpfunc.h"
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -10,11 +11,16 @@
 #include <QTimer>
 #include "setdialog.h"
 #include "aboutdialog.h"
-#include <Windows.h>
 #include "helpdialog.h"
 #include <QShortcut>
 #include <QMessageBox>
 #include <QDateTime>
+#include <QStyleFactory>
+#include <QCursor>
+#include <QGuiApplication>
+#include <QScreen>
+#include <QApplication>
+#include <QStyle>
 
 #if defined(_MSC_VER) && (_MSC_VER >= 1600)
 # pragma execution_character_set("utf-8")
@@ -24,6 +30,7 @@ MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
     , m_can_exit(false)
+    , m_isUos(isUos())
 {
     ui->setupUi(this);
 
@@ -129,18 +136,45 @@ MainWindow::MainWindow(QWidget *parent)
     connect(m_list_action_delete,SIGNAL(triggered()), this, SLOT(sltListActonDelete()));
 
     m_listMenu = new QMenu(this);
-    m_listMoveMenu = m_listMenu->addMenu(tr("移至"));
+    m_listGroupMoveMenu = m_listMenu->addMenu(tr("改分组"));
+    m_listMoveMenu = m_listMenu->addMenu(tr("移至记事本"));
     m_listMenu->addAction(m_list_action_delete);
 
-    connect(ui->listWidgetFile,SIGNAL(customContextMenuRequested(const QPoint &)),
+    m_group_action_new_note = new QAction(tr("在此分组新建笔记"),this);
+    connect(m_group_action_new_note,SIGNAL(triggered()), this, SLOT(sltGroupActionNewNote()));
+    m_group_action_rename = new QAction(tr("重命名分组"),this);
+    connect(m_group_action_rename,SIGNAL(triggered()), this, SLOT(sltGroupActionRename()));
+    m_group_action_delete = new QAction(tr("删除分组"),this);
+    connect(m_group_action_delete,SIGNAL(triggered()), this, SLOT(sltGroupActionDelete()));
+
+    m_groupMenu = new QMenu(this);
+    m_groupMenu->addAction(m_group_action_new_note);
+    m_groupMenu->addAction(m_group_action_rename);
+    m_groupMenu->addAction(m_group_action_delete);
+
+    m_blank_action_new_note = new QAction(tr("新建笔记"),this);
+    connect(m_blank_action_new_note,SIGNAL(triggered()), this, SLOT(sltActionNew()));
+    m_blank_action_new_group = new QAction(tr("新建分组"),this);
+    connect(m_blank_action_new_group,SIGNAL(triggered()), this, SLOT(sltGroupActionNew()));
+
+    m_blankMenu = new QMenu(this);
+    m_blankMenu->addAction(m_blank_action_new_note);
+    m_blankMenu->addAction(m_blank_action_new_group);
+
+    connect(ui->treeWidgetFile,SIGNAL(customContextMenuRequested(const QPoint &)),
             this,SLOT(sltListMenuRequested(const QPoint &)));
+    connect(ui->treeWidgetFile,SIGNAL(noteDropped(QTreeWidgetItem*,QString)),
+            this,SLOT(sltNoteDropped(QTreeWidgetItem*,QString)));
+
+    keepTreeAlwaysActive();
 
     m_findDlg = new FindDialog(this);
     m_tableDlg = new SetTableDialog(this);
 
-    if (!QFile::exists("EasyNote.ini"))
+    const QString settingsPath = settingsFile();
+    if (!QFile::exists(settingsPath))
     {
-        m_setting = new QSettings("EasyNote.ini",QSettings::IniFormat,this);
+        m_setting = new QSettings(settingsPath,QSettings::IniFormat,this);
         m_setting->setIniCodec("UTF-8");
         m_setting->setValue("hotkey","Alt+O");
         m_setting->setValue("last_open_notebook",tr("我的记事本"));
@@ -152,7 +186,7 @@ MainWindow::MainWindow(QWidget *parent)
     }
     else
     {
-        m_setting = new QSettings("EasyNote.ini",QSettings::IniFormat,this);
+        m_setting = new QSettings(settingsPath,QSettings::IniFormat,this);
         m_setting->setIniCodec("UTF-8");
         ui->splitter->restoreState(m_setting->value("splitter_size").toByteArray());
         int iWidth = m_setting->value("Width").toInt();
@@ -176,14 +210,13 @@ MainWindow::MainWindow(QWidget *parent)
         m_sort_type = SortType(m_setting->value("sort_type", 0).toInt());
     }
 
-    QDir dir;
-    dir.mkdir("data");
-    dir.setPath("data");
+    restoreWindowPlacement();
+
+    QDir dir(notesRoot());
     QStringList folderList = dir.entryList(QDir::Dirs|QDir::NoDotAndDotDot,QDir::Time);
     if (folderList.isEmpty())
     {
-        QDir temp;
-        temp.mkdir("data\\我的记事本");
+        dir.mkdir(QString::fromUtf8("我的记事本"));
         ui->comboBox->addItem("我的记事本");
     }
     else
@@ -199,7 +232,7 @@ MainWindow::MainWindow(QWidget *parent)
     }
     else
     {
-        ui->comboBox->setCurrentText(0);
+        ui->comboBox->setCurrentIndex(0);
     }
 
     m_notebook = ui->comboBox->currentText();
@@ -208,10 +241,14 @@ MainWindow::MainWindow(QWidget *parent)
 
     refreshMenu();
 
-    m_shortcut = new QxtGlobalShortcut(QKeySequence(),this);
-    if (m_shortcut->setShortcut(QKeySequence(m_hotkey)))
+    m_shortcut = nullptr;
+    if (!m_isUos)
     {
-        connect(m_shortcut,SIGNAL(activated()),this,SLOT(sltHotKey()));
+        m_shortcut = new QxtGlobalShortcut(QKeySequence(),this);
+        if (m_shortcut->setShortcut(QKeySequence(m_hotkey)))
+        {
+            connect(m_shortcut,SIGNAL(activated()),this,SLOT(sltHotKey()));
+        }
     }
 
     connect(ui->actionFont,SIGNAL(triggered()),this,SLOT(sltActionFontClick()));
@@ -221,7 +258,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->actionFontColor, SIGNAL(triggered()), this, SLOT(sltSetFontColor()));
     connect(ui->actionBgColor, SIGNAL(triggered()), this, SLOT(sltSetBgColor()));
     connect(ui->actionAbout,SIGNAL(triggered()),this,SLOT(sltAbout()));
-    connect(ui->listWidgetFile,SIGNAL(itemDoubleClicked(QListWidgetItem *)),this,SLOT(sltLeftDoubleClicked(QListWidgetItem *)));
+    connect(ui->treeWidgetFile,SIGNAL(itemDoubleClicked(QTreeWidgetItem *, int)),this,SLOT(sltTreeItemDoubleClicked(QTreeWidgetItem *, int)));
     connect(ui->comboBox,SIGNAL(currentIndexChanged(const QString&)),
             this,SLOT(sltCurrentIndexChanged(const QString&)));
 }
@@ -231,9 +268,8 @@ MainWindow::~MainWindow()
     delete ui;
 }
 
-void MainWindow::initNoteBook()
+void MainWindow::closeAllTabs()
 {
-    ui->listWidgetFile->clear();
     int tabCount = ui->tabWidgetNote->count();
     for (int i = 0; i < tabCount; i++)
     {
@@ -241,42 +277,206 @@ void MainWindow::initNoteBook()
         ui->tabWidgetNote->removeTab(0);
         delete widget;
     }
+}
 
-    QString folderPath = QString("data\\%1").arg(m_notebook);
-
-    QDir dir;
-    dir.mkdir(folderPath);
-
-    dir.setPath(folderPath);
-    QStringList filters;
-    filters << "*.enote";
-    dir.setNameFilters(filters);
-    QFileInfoList fileList = dir.entryInfoList();
-    if (fileList.isEmpty())
+static bool noteLessThan(const QFileInfo& a, const QFileInfo& b, SortType type)
+{
+    switch (type)
     {
-        NoteWidget* defaultNote = new NoteWidget(ui->tabWidgetNote,m_notebook,tr("默认页"),m_editor_font);
-        ui->tabWidgetNote->addTab(defaultNote,tr("默认页"));
+        case SORT_BY_CREAT_AORDER: return a.birthTime() < b.birthTime();
+        case SORT_BY_CREAT_DORDER: return a.birthTime() > b.birthTime();
+        case SORT_BY_MODIFY_AORDER: return a.lastModified() < b.lastModified();
+        case SORT_BY_MODIFY_DORDER: return a.lastModified() > b.lastModified();
+        case SORT_BY_NAME:
+        default:
+            return a.completeBaseName().localeAwareCompare(b.completeBaseName()) < 0;
+    }
+}
 
-        MyListWidgetItem* item = new MyListWidgetItem(ui->listWidgetFile);
-        item->setData(FILE_CREATE_TIME, QDateTime::currentDateTime().toTime_t());
-        item->setData(FILE_MODIFY_TIME, QDateTime::currentDateTime().toTime_t());
-        item->setSortType(m_sort_type);
-        item->setText(tr("默认页"));
-        ui->listWidgetFile->addItem(item);
+QString MainWindow::tabKey(const QString& groupName, const QString& noteName)
+{
+    return groupName.isEmpty() ? noteName : (groupName + QLatin1Char('/') + noteName);
+}
+
+QTreeWidgetItem* MainWindow::findGroupItem(const QString& groupName) const
+{
+    if (groupName.isEmpty()) return nullptr;
+    QTreeWidget* tree = ui->treeWidgetFile;
+    for (int i = 0; i < tree->topLevelItemCount(); i++)
+    {
+        QTreeWidgetItem* item = tree->topLevelItem(i);
+        if (item->data(0, ITEM_KIND_ROLE).toInt() == ITEM_GROUP && item->text(0) == groupName)
+            return item;
+    }
+    return nullptr;
+}
+
+QTreeWidgetItem* MainWindow::findNoteItem(const QString& groupName, const QString& noteName) const
+{
+    QTreeWidget* tree = ui->treeWidgetFile;
+    if (groupName.isEmpty())
+    {
+        for (int i = 0; i < tree->topLevelItemCount(); i++)
+        {
+            QTreeWidgetItem* item = tree->topLevelItem(i);
+            if (item->data(0, ITEM_KIND_ROLE).toInt() == ITEM_NOTE && item->text(0) == noteName)
+                return item;
+        }
+        return nullptr;
+    }
+
+    QTreeWidgetItem* group = findGroupItem(groupName);
+    if (!group) return nullptr;
+    for (int i = 0; i < group->childCount(); i++)
+    {
+        if (group->child(i)->text(0) == noteName) return group->child(i);
+    }
+    return nullptr;
+}
+
+QString MainWindow::currentGroup() const
+{
+    QTreeWidgetItem* item = ui->treeWidgetFile->currentItem();
+    if (!item) return QString();
+    if (item->data(0, ITEM_KIND_ROLE).toInt() == ITEM_GROUP) return item->text(0);
+    QTreeWidgetItem* parent = item->parent();
+    return parent ? parent->text(0) : QString();
+}
+
+QStringList MainWindow::listGroups() const
+{
+    QStringList groups;
+    QTreeWidget* tree = ui->treeWidgetFile;
+    for (int i = 0; i < tree->topLevelItemCount(); i++)
+    {
+        QTreeWidgetItem* item = tree->topLevelItem(i);
+        if (item->data(0, ITEM_KIND_ROLE).toInt() == ITEM_GROUP) groups << item->text(0);
+    }
+    return groups;
+}
+
+QTreeWidgetItem* MainWindow::addGroupItem(const QString& groupName)
+{
+    QTreeWidgetItem* item = new QTreeWidgetItem();
+    item->setText(0, groupName);
+    item->setData(0, ITEM_KIND_ROLE, ITEM_GROUP);
+    item->setIcon(0, stableStandardIcon(QStyle::SP_DirIcon));
+    item->setChildIndicatorPolicy(QTreeWidgetItem::ShowIndicator);
+
+    int insertAt = 0;
+    QTreeWidget* tree = ui->treeWidgetFile;
+    while (insertAt < tree->topLevelItemCount())
+    {
+        QTreeWidgetItem* sib = tree->topLevelItem(insertAt);
+        if (sib->data(0, ITEM_KIND_ROLE).toInt() != ITEM_GROUP) break;
+        if (sib->text(0).localeAwareCompare(groupName) > 0) break;
+        insertAt++;
+    }
+    tree->insertTopLevelItem(insertAt, item);
+    item->setExpanded(true);
+    return item;
+}
+
+QTreeWidgetItem* MainWindow::addNoteItem(const QString& groupName, const QString& noteName,
+                                        uint createTime, uint modifyTime)
+{
+    QTreeWidgetItem* item = new QTreeWidgetItem();
+    item->setText(0, noteName);
+    item->setData(0, ITEM_KIND_ROLE, ITEM_NOTE);
+    item->setData(0, FILE_CREATE_TIME, createTime);
+    item->setData(0, FILE_MODIFY_TIME, modifyTime);
+    item->setIcon(0, fileIcon(noteFilePath(m_notebook, groupName, noteName)));
+    if (groupName.isEmpty())
+    {
+        ui->treeWidgetFile->addTopLevelItem(item);
     }
     else
     {
-        foreach (QFileInfo noteFile, fileList)
-        {
-            QString fileName = noteFile.completeBaseName();
-            MyListWidgetItem* item = new MyListWidgetItem(ui->listWidgetFile);
-            item->setData(FILE_CREATE_TIME, noteFile.birthTime().toTime_t());
-            item->setData(FILE_MODIFY_TIME, noteFile.lastModified().toTime_t());
-            item->setSortType(m_sort_type);
-            item->setText(fileName);
-            ui->listWidgetFile->addItem(item);
-        }
+        QTreeWidgetItem* group = findGroupItem(groupName);
+        if (!group) group = addGroupItem(groupName);
+        group->addChild(item);
+    }
+    return item;
+}
 
+void MainWindow::keepTreeAlwaysActive()
+{
+    QPalette p = QApplication::palette();
+    const QPalette::ColorRole roles[] = {
+        QPalette::Text, QPalette::WindowText, QPalette::Base,
+        QPalette::AlternateBase, QPalette::Button, QPalette::ButtonText
+    };
+    for (QPalette::ColorRole role : roles)
+    {
+        p.setColor(QPalette::Inactive, role, p.color(QPalette::Active, role));
+    }
+    p.setColor(QPalette::Inactive, QPalette::Highlight, Qt::transparent);
+    p.setColor(QPalette::Inactive, QPalette::HighlightedText,
+               p.color(QPalette::Active, QPalette::Text));
+    ui->treeWidgetFile->setPalette(p);
+}
+
+void MainWindow::initNoteBook()
+{
+    ui->treeWidgetFile->clear();
+
+    QString folderPath = notebookPath(m_notebook);
+    QDir().mkpath(folderPath);
+
+    QDir bookDir(folderPath);
+    QStringList groupDirs = bookDir.entryList(QDir::Dirs|QDir::NoDotAndDotDot, QDir::Name);
+    foreach (const QString& groupName, groupDirs)
+    {
+        addGroupItem(groupName);
+
+        QDir groupDir(groupPath(m_notebook, groupName));
+        groupDir.setNameFilters(QStringList() << "*.enote");
+        QFileInfoList groupFiles = groupDir.entryInfoList(QDir::Files);
+        std::sort(groupFiles.begin(), groupFiles.end(),
+                  [this](const QFileInfo& a, const QFileInfo& b){ return noteLessThan(a,b,m_sort_type); });
+        foreach (const QFileInfo& fi, groupFiles)
+        {
+            addNoteItem(groupName, fi.completeBaseName(),
+                        fi.birthTime().toTime_t(), fi.lastModified().toTime_t());
+        }
+    }
+
+    QDir rootDir(folderPath);
+    rootDir.setNameFilters(QStringList() << "*.enote");
+    QFileInfoList rootFiles = rootDir.entryInfoList(QDir::Files);
+    std::sort(rootFiles.begin(), rootFiles.end(),
+              [this](const QFileInfo& a, const QFileInfo& b){ return noteLessThan(a,b,m_sort_type); });
+    foreach (const QFileInfo& fi, rootFiles)
+    {
+        addNoteItem(QString(), fi.completeBaseName(),
+                    fi.birthTime().toTime_t(), fi.lastModified().toTime_t());
+    }
+
+    bool noNotes = rootFiles.isEmpty();
+    if (noNotes)
+    {
+        foreach (const QString& groupName, groupDirs)
+        {
+            QDir groupDir(groupPath(m_notebook, groupName));
+            groupDir.setNameFilters(QStringList() << "*.enote");
+            if (!groupDir.entryList(QDir::Files).isEmpty())
+            {
+                noNotes = false;
+                break;
+            }
+        }
+    }
+
+    if (noNotes)
+    {
+        NoteWidget* defaultNote = new NoteWidget(ui->tabWidgetNote,m_notebook,QString(),tr("默认页"),m_editor_font);
+        ui->tabWidgetNote->addTab(defaultNote,tr("默认页"));
+        addNoteItem(QString(), tr("默认页"),
+                    QDateTime::currentDateTime().toTime_t(),
+                    QDateTime::currentDateTime().toTime_t());
+    }
+    else
+    {
         QString noteHistory = m_setting->value("History/" + m_notebook).toString();
         if (noteHistory.isEmpty())
         {
@@ -287,15 +487,27 @@ void MainWindow::initNoteBook()
             QWidget* curWidget = nullptr;
             QString currentNote = m_setting->value("last_open_tab").toString();
 
-            QStringList noteList = noteHistory.split('|');
-            foreach(QString fileName, noteList)
+            QStringList noteList = noteHistory.split('|', QString::SkipEmptyParts);
+            foreach(const QString& entry, noteList)
             {
-                QString filePath = QString("data\\%1\\%2.enote").arg(m_notebook).arg(fileName);
+                QString group, fileName;
+                int slash = entry.indexOf('/');
+                if (slash >= 0)
+                {
+                    group = entry.left(slash);
+                    fileName = entry.mid(slash + 1);
+                }
+                else
+                {
+                    fileName = entry;
+                }
+
+                QString filePath = noteFilePath(m_notebook, group, fileName);
                 if (QFile::exists(filePath))
                 {
-                    NoteWidget* note = new NoteWidget(ui->tabWidgetNote,m_notebook,fileName,m_editor_font);
+                    NoteWidget* note = new NoteWidget(ui->tabWidgetNote,m_notebook,group,fileName,m_editor_font);
                     ui->tabWidgetNote->addTab(note,fileName);
-                    if (fileName == currentNote)
+                    if (entry == currentNote || fileName == currentNote)
                     {
                         curWidget = note;
                     }
@@ -308,16 +520,11 @@ void MainWindow::initNoteBook()
             }
         }
     }
-
-    if (m_sort_type == SORT_BY_CREAT_DORDER || m_sort_type == SORT_BY_MODIFY_DORDER)
-        ui->listWidgetFile->sortItems(Qt::DescendingOrder);
-    else
-        ui->listWidgetFile->sortItems(Qt::AscendingOrder);
 }
 
 void MainWindow::refreshMenu()
 {
-    QDir dir("data");
+    QDir dir(notesRoot());
     QStringList folderList = dir.entryList(QDir::Dirs|QDir::NoDotAndDotDot,QDir::Time);
     if (folderList.isEmpty())
     {
@@ -356,9 +563,18 @@ void MainWindow::save()
     m_setting->setValue("last_open_notebook",ui->comboBox->currentText());
     m_setting->setValue("Width", width());
     m_setting->setValue("Heigth", height());
+    m_setting->setValue("PosX", x());
+    m_setting->setValue("PosY", y());
 
     int current = ui->tabWidgetNote->currentIndex();
-    m_setting->setValue("last_open_tab", ui->tabWidgetNote->tabText(current));
+    if (current >= 0)
+    {
+        NoteWidget* curWidget = (NoteWidget*)ui->tabWidgetNote->widget(current);
+        if (curWidget)
+        {
+            m_setting->setValue("last_open_tab", tabKey(curWidget->group(), ui->tabWidgetNote->tabText(current)));
+        }
+    }
 
     m_setting->beginGroup("History");
     QStringList noteList;
@@ -368,7 +584,7 @@ void MainWindow::save()
         if (!widget->isEmpty())
         {
             QString fileName = ui->tabWidgetNote->tabText(i);
-            noteList.append(fileName);
+            noteList.append(tabKey(widget->group(), fileName));
         }
     }
     QString noteHistory = noteList.join('|');
@@ -376,6 +592,59 @@ void MainWindow::save()
     m_setting->endGroup();
 
     m_setting->sync();
+}
+
+void MainWindow::restoreWindowPlacement()
+{
+    const bool hasPosX = m_setting->contains("PosX");
+    const bool hasPosY = m_setting->contains("PosY");
+    if (hasPosX && hasPosY)
+    {
+        move(m_setting->value("PosX").toInt(), m_setting->value("PosY").toInt());
+        return;
+    }
+
+    QScreen* screen = QGuiApplication::screenAt(QCursor::pos());
+    if (!screen)
+    {
+        screen = QGuiApplication::primaryScreen();
+    }
+    if (!screen)
+    {
+        return;
+    }
+
+    const QRect availableGeometry = screen->availableGeometry();
+    const QPoint centeredPos = availableGeometry.center() - rect().center();
+    move(centeredPos);
+}
+
+bool MainWindow::applyGlobalShortcut(const QString& shortcut, bool showErrorMessage)
+{
+    if (!m_shortcut)
+    {
+        return false;
+    }
+
+    if (shortcut.trimmed().isEmpty())
+    {
+        if (showErrorMessage)
+        {
+            QMessageBox::warning(this,
+                                 tr("快捷键设置失败"),
+                                 tr("当前平台暂不支持清空后保留未注册状态，请设置一个新的快捷键。"));
+        }
+        return false;
+    }
+
+    const bool ok = m_shortcut->setShortcut(QKeySequence(shortcut));
+    if (!ok && showErrorMessage)
+    {
+        QMessageBox::warning(this,
+                             tr("快捷键设置失败"),
+                             tr("无法注册全局快捷键，请尝试更换其他按键。"));
+    }
+    return ok;
 }
 
 bool MainWindow::eventFilter(QObject *watched, QEvent *event)
@@ -448,24 +717,21 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event)
     return false;
 }
 
-void MainWindow::newTab()
+void MainWindow::newTab(const QString& groupName)
 {
     for (int i = 1; i < 100; i++)
     {
         QString newName = QString("新建页 %1").arg(i);
-        QList<QListWidgetItem*> item_list = ui->listWidgetFile->findItems(newName,Qt::MatchExactly);
-        if (item_list.isEmpty())
+        if (!findNoteItem(groupName, newName))
         {
-            NoteWidget* note = new NoteWidget(ui->tabWidgetNote,m_notebook,newName,m_editor_font);
+            NoteWidget* note = new NoteWidget(ui->tabWidgetNote,m_notebook,groupName,newName,m_editor_font);
             ui->tabWidgetNote->addTab(note,newName);
             ui->tabWidgetNote->setCurrentWidget(note);
 
-            MyListWidgetItem* item = new MyListWidgetItem(ui->listWidgetFile);
-            item->setData(FILE_CREATE_TIME, QDateTime::currentDateTime().toTime_t());
-            item->setData(FILE_MODIFY_TIME, QDateTime::currentDateTime().toTime_t());
-            item->setSortType(m_sort_type);
-            item->setText(newName);
-            ui->listWidgetFile->addItem(item);
+            QTreeWidgetItem* item = addNoteItem(groupName, newName,
+                                                QDateTime::currentDateTime().toTime_t(),
+                                                QDateTime::currentDateTime().toTime_t());
+            ui->treeWidgetFile->setCurrentItem(item);
 
             break;
         }
@@ -475,26 +741,31 @@ void MainWindow::newTab()
 void MainWindow::renameTab(int tabIndex, QString& newName)
 {
     QString oldName = ui->tabWidgetNote->tabText(tabIndex);
-    if (oldName == newName)
+    QString validName = normalizedEntryName(newName);
+    if (!isValidEntryName(validName))
+    {
+        QMessageBox::information(this, tr("提示"), tr("笔记名称不能为空，且不能包含 / \\ |"));
+        return;
+    }
+
+    if (oldName == validName)
     {
         return;
     }
 
-    QString newNotePath = QString("data\\%1\\%2.enote").arg(m_notebook).arg(newName);
+    NoteWidget* widget = (NoteWidget*)ui->tabWidgetNote->widget(tabIndex);
+    QString group = widget ? widget->group() : QString();
+    QString newNotePath = noteFilePath(m_notebook, group, validName);
     if (QFile::exists(newNotePath))
     {
         QMessageBox::information(this,tr("提示"),tr("命名笔记已存在，请换一个名字"));
         return;
     }
 
-    NoteWidget* widget = (NoteWidget*)ui->tabWidgetNote->widget(tabIndex);
-    widget->rename(newName);
-    ui->tabWidgetNote->setTabText(tabIndex,newName);
-    QList<QListWidgetItem*> item_list = ui->listWidgetFile->findItems(oldName,Qt::MatchExactly);
-    if (!item_list.isEmpty())
-    {
-        item_list[0]->setText(newName);
-    }
+    widget->rename(validName);
+    ui->tabWidgetNote->setTabText(tabIndex,validName);
+    QTreeWidgetItem* item = findNoteItem(group, oldName);
+    if (item) item->setText(0, validName);
 }
 
 bool MainWindow::find(QString &text,QTextDocument::FindFlags flags)
@@ -512,37 +783,7 @@ bool MainWindow::find(QString &text,QTextDocument::FindFlags flags)
 
 void MainWindow::sortFileList()
 {
-    ui->listWidgetFile->clear();
-
-
-    QString folderPath = QString("data\\%1").arg(m_notebook);
-
-    QDir dir;
-    dir.mkdir(folderPath);
-
-    dir.setPath(folderPath);
-    QStringList filters;
-    filters << "*.enote";
-    dir.setNameFilters(filters);
-    QFileInfoList fileList = dir.entryInfoList();
-    if (!fileList.isEmpty())
-    {
-        foreach (QFileInfo noteFile, fileList)
-        {
-            QString fileName = noteFile.completeBaseName();
-            MyListWidgetItem* item = new MyListWidgetItem(ui->listWidgetFile);
-            item->setData(FILE_CREATE_TIME, noteFile.birthTime().toTime_t());
-            item->setData(FILE_MODIFY_TIME, noteFile.lastModified().toTime_t());
-            item->setSortType(m_sort_type);
-            item->setText(fileName);
-            ui->listWidgetFile->addItem(item);
-        }
-
-        if (m_sort_type == SORT_BY_CREAT_DORDER || m_sort_type == SORT_BY_MODIFY_DORDER)
-            ui->listWidgetFile->sortItems(Qt::DescendingOrder);
-        else
-            ui->listWidgetFile->sortItems(Qt::AscendingOrder);
-    }
+    initNoteBook();
 }
 
 void MainWindow::sltActionFontClick()
@@ -564,17 +805,22 @@ void MainWindow::sltActionFontClick()
     }
 }
 
-void MainWindow::sltLeftDoubleClicked(QListWidgetItem *item)
+void MainWindow::sltTreeItemDoubleClicked(QTreeWidgetItem *item, int column)
 {
-    QString fileName = item->text();
-    NoteWidget* noteItem = ui->tabWidgetNote->findChild<NoteWidget*>(fileName);
+    Q_UNUSED(column);
+    if (!item || item->data(0, ITEM_KIND_ROLE).toInt() != ITEM_NOTE) return;
+
+    QString fileName = item->text(0);
+    QString group = item->parent() ? item->parent()->text(0) : QString();
+    QString key = tabKey(group, fileName);
+    NoteWidget* noteItem = ui->tabWidgetNote->findChild<NoteWidget*>(key);
     if (noteItem)
     {
         ui->tabWidgetNote->setCurrentWidget(noteItem);
     }
     else
     {
-        NoteWidget* note = new NoteWidget(ui->tabWidgetNote,m_notebook,fileName,m_editor_font);
+        NoteWidget* note = new NoteWidget(ui->tabWidgetNote,m_notebook,group,fileName,m_editor_font);
         ui->tabWidgetNote->addTab(note,fileName);
         ui->tabWidgetNote->setCurrentWidget(note);
     }
@@ -583,16 +829,13 @@ void MainWindow::sltLeftDoubleClicked(QListWidgetItem *item)
 void MainWindow::sltRemoveTab(int index)
 {
     NoteWidget* widget = (NoteWidget*)ui->tabWidgetNote->widget(index);
+    QString group = widget ? widget->group() : QString();
+    QString name = ui->tabWidgetNote->tabText(index);
     ui->tabWidgetNote->removeTab(index);
-    if (widget->isEmpty())
+    if (widget && widget->isEmpty())
     {
-        QList<QListWidgetItem*> item_list = ui->listWidgetFile->findItems(widget->objectName(),Qt::MatchExactly);
-        if (!item_list.isEmpty())
-        {
-            int row = ui->listWidgetFile->row(item_list[0]);
-            ui->listWidgetFile->takeItem(row);
-            delete item_list[0];
-        }
+        QTreeWidgetItem* item = findNoteItem(group, name);
+        if (item) delete item;
     }
     delete widget;
 }
@@ -697,11 +940,11 @@ void MainWindow::sltSet()
     SetDialog dlg(this);
     if (dlg.exec() == QDialog::Accepted)
     {
-        if (dlg.m_shortcut != m_hotkey)
+        if (!m_isUos && dlg.m_shortcut != m_hotkey)
         {
-            m_hotkey = dlg.m_shortcut;
-            if (m_shortcut->setShortcut(QKeySequence(m_hotkey)))
+            if (applyGlobalShortcut(dlg.m_shortcut, true))
             {
+                m_hotkey = dlg.m_shortcut;
                 m_setting->setValue("hotkey",m_hotkey);
             }
         }
@@ -727,13 +970,14 @@ void MainWindow::sltKeepTop()
 {
     if (ui->actionTop->isChecked())
     {
-        ::SetWindowPos((HWND)this->winId(), HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+        setWindowFlags(windowFlags() | Qt::WindowStaysOnTopHint);
     }
     else
     {
-        ::SetWindowPos((HWND)this->winId(), HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+        setWindowFlags(windowFlags() & ~Qt::WindowStaysOnTopHint);
     }
 
+    show();
 }
 
 void MainWindow::sltDarkMode()
@@ -742,12 +986,12 @@ void MainWindow::sltDarkMode()
 
     if (ui->actionDark->isChecked())
     {
+    #ifdef Q_OS_WIN32
+        qApp->setStyle(QStyleFactory::create("Fusion"));
+    #endif
+
         lightPalette = qApp->palette();
 
-        // set style
-        qApp->setStyle(QStyleFactory::create("Fusion"));
-
-        // modify palette to dark
         QPalette darkPalette;
         darkPalette.setColor(QPalette::Window,QColor(53,53,53));
         darkPalette.setColor(QPalette::WindowText,Qt::white);
@@ -774,9 +1018,14 @@ void MainWindow::sltDarkMode()
     }
     else
     {
+    #ifdef Q_OS_WIN32
         qApp->setStyle(QStyleFactory::create("windowsvista"));
+    #endif
+
         qApp->setPalette(lightPalette);
     }
+
+    keepTreeAlwaysActive();
 }
 
 void MainWindow::sltSetFontColor()
@@ -810,15 +1059,13 @@ void MainWindow::sltAbout()
 void MainWindow::sltActionDelete()
 {
     NoteWidget* widget = (NoteWidget*)ui->tabWidgetNote->currentWidget();
+    if (!widget) return;
     int index = ui->tabWidgetNote->currentIndex();
+    QString name = ui->tabWidgetNote->tabText(index);
+    QString group = widget->group();
     ui->tabWidgetNote->removeTab(index);
-    QList<QListWidgetItem*> item_list = ui->listWidgetFile->findItems(widget->objectName(),Qt::MatchExactly);
-    if (!item_list.isEmpty())
-    {
-        int row = ui->listWidgetFile->row(item_list[0]);
-        ui->listWidgetFile->takeItem(row);
-        delete item_list[0];
-    }
+    QTreeWidgetItem* item = findNoteItem(group, name);
+    if (item) delete item;
     widget->deletefile();
     delete widget;
 }
@@ -837,7 +1084,7 @@ void MainWindow::sltActionRename()
 
 void MainWindow::sltActionNew()
 {
-    newTab();
+    newTab(currentGroup());
 }
 
 void MainWindow::sltActionCloseLeft()
@@ -875,7 +1122,14 @@ void MainWindow::sltComboActionNew()
     dlg.setWindowTitle("新建");
     if (dlg.exec() == QDialog::Accepted)
     {
-        QString noteFolder = QString("data\\%1").arg(dlg.m_newName);
+        QString notebookName = normalizedEntryName(dlg.m_newName);
+        if (!isValidEntryName(notebookName))
+        {
+            QMessageBox::information(this, tr("提示"), tr("记事本名称不能为空，且不能包含 / \\ |"));
+            return;
+        }
+
+        QString noteFolder = notebookPath(notebookName);
         if (QFile::exists(noteFolder))
         {
             QMessageBox::information(this,tr("提示"),tr("记事本已经存在"));
@@ -883,10 +1137,10 @@ void MainWindow::sltComboActionNew()
         }
 
         QDir dir;
-        dir.mkdir(noteFolder);
+        dir.mkpath(noteFolder);
 
-        ui->comboBox->addItem(dlg.m_newName);
-        ui->comboBox->setCurrentText(dlg.m_newName);
+        ui->comboBox->addItem(notebookName);
+        ui->comboBox->setCurrentText(notebookName);
     }
 }
 
@@ -896,8 +1150,20 @@ void MainWindow::sltComboActionRename()
     dlg.setWindowTitle("改名");
     if (dlg.exec() == QDialog::Accepted)
     {
-        QString oldPath = QString("data\\%1").arg(ui->comboBox->currentText());
-        QString newPath = QString("data\\%1").arg(dlg.m_newName);
+        QString notebookName = normalizedEntryName(dlg.m_newName);
+        if (!isValidEntryName(notebookName))
+        {
+            QMessageBox::information(this, tr("提示"), tr("记事本名称不能为空，且不能包含 / \\ |"));
+            return;
+        }
+
+        if (notebookName == ui->comboBox->currentText())
+        {
+            return;
+        }
+
+        QString oldPath = notebookPath(ui->comboBox->currentText());
+        QString newPath = notebookPath(notebookName);
 
         if (QFile::exists(newPath))
         {
@@ -910,25 +1176,25 @@ void MainWindow::sltComboActionRename()
         QString keyName = QString("/History/%1").arg(ui->comboBox->currentText());
         QString history = m_setting->value(keyName).toString();
         m_setting->remove(keyName);
-        keyName = QString("/History/%1").arg(dlg.m_newName);
+        keyName = QString("/History/%1").arg(notebookName);
         m_setting->setValue(keyName,history);
 
-        m_notebook = dlg.m_newName;
+        m_notebook = notebookName;
 
         QAction* renameAction = m_tabMoveMenu->findChild<QAction*>(ui->comboBox->currentText());
         if (renameAction)
         {
-            renameAction->setText(dlg.m_newName);
+            renameAction->setText(notebookName);
         }
 
         renameAction = m_listMoveMenu->findChild<QAction*>(ui->comboBox->currentText());
         if (renameAction)
         {
-            renameAction->setText(dlg.m_newName);
+            renameAction->setText(notebookName);
         }
 
         int curIndex = ui->comboBox->currentIndex();
-        ui->comboBox->setItemText(curIndex,dlg.m_newName);
+        ui->comboBox->setItemText(curIndex,notebookName);
     }
 }
 
@@ -944,36 +1210,63 @@ void MainWindow::sltComboActionDelete()
                              tr("你将删除该记事本下的所有笔记，是否继续？"),
                              QMessageBox::Yes|QMessageBox::No,QMessageBox::Yes))
     {
-        QString notePath = QString("data\\%1").arg(ui->comboBox->currentText());
-        QDir dir(notePath);
-        dir.removeRecursively();
+        const QString notebookName = ui->comboBox->currentText();
+        const QString notePath = notebookPath(notebookName);
+
         int index = ui->comboBox->currentIndex();
         ui->comboBox->removeItem(index);
-        QString keyName = QString("/History/%1").arg(ui->comboBox->currentText());
-        m_setting->remove(keyName);
+        m_setting->remove(QString("/History/%1").arg(notebookName));
+
+        QDir notebookDir(notePath);
+        if (notebookDir.isEmpty())
+        {
+            notebookDir.rmdir(notePath);
+        }
+        else
+        {
+            moveToTrash(notePath);
+        }
     }
 }
 
 void MainWindow::sltListActonDelete()
 {
-    QString noteTitle = ui->listWidgetFile->currentItem()->text();
-    NoteWidget* noteItem = ui->tabWidgetNote->findChild<NoteWidget*>(noteTitle);
+    QTreeWidgetItem* item = ui->treeWidgetFile->currentItem();
+    if (!item)
+    {
+        return;
+    }
+
+    if (item->data(0, ITEM_KIND_ROLE).toInt() == ITEM_GROUP)
+    {
+        sltGroupActionDelete();
+        return;
+    }
+
+    QString noteTitle = item->text(0);
+    QString group = item->parent() ? item->parent()->text(0) : QString();
+    QString key = tabKey(group, noteTitle);
+    NoteWidget* noteItem = ui->tabWidgetNote->findChild<NoteWidget*>(key);
     if (noteItem)
     {
-        delete ui->listWidgetFile->takeItem(ui->listWidgetFile->currentRow());
-
+        delete item;
         int index = ui->tabWidgetNote->indexOf(noteItem);
         ui->tabWidgetNote->removeTab(index);
-
         noteItem->deletefile();
         delete noteItem;
     }
     else
     {
-        delete ui->listWidgetFile->takeItem(ui->listWidgetFile->currentRow());
-
-        QString filePath = QString("data\\%1\\%2.enote").arg(m_notebook).arg(noteTitle);
-        QFile::remove(filePath);
+        delete item;
+        QString filePath = noteFilePath(m_notebook, group, noteTitle);
+        if (QFileInfo(filePath).size() == 0)
+        {
+            QFile::remove(filePath);
+        }
+        else
+        {
+            moveToTrash(filePath);
+        }
     }
 }
 
@@ -981,6 +1274,7 @@ void MainWindow::sltCurrentIndexChanged(const QString &text)
 {
     save();
     m_notebook = text;
+    closeAllTabs();
     initNoteBook();
     refreshMenu();
 }
@@ -1003,10 +1297,12 @@ void MainWindow::sltTabActionMove()
         return;
     }
 
-    QString noteTitle = noteItem->objectName();
+    int index = ui->tabWidgetNote->indexOf(noteItem);
+    QString noteTitle = ui->tabWidgetNote->tabText(index);
+    QString srcGroup = noteItem->group();
 
-    QString srcPath = QString("data\\%1\\%2.enote").arg(m_notebook).arg(noteTitle);
-    QString dstPath = QString("data\\%1\\%2.enote").arg(noteBookName).arg(noteTitle);
+    QString srcPath = noteFilePath(m_notebook, srcGroup, noteTitle);
+    QString dstPath = noteFilePath(noteBookName, QString(), noteTitle);
 
     if (QFile::exists(dstPath))
     {
@@ -1014,18 +1310,13 @@ void MainWindow::sltTabActionMove()
         return;
     }
 
-    QList<QListWidgetItem*> item_list = ui->listWidgetFile->findItems(noteTitle,Qt::MatchExactly);
-    if (!item_list.isEmpty())
-    {
-        int row = ui->listWidgetFile->row(item_list[0]);
-        ui->listWidgetFile->takeItem(row);
-        delete item_list[0];
-    }
+    QTreeWidgetItem* item = findNoteItem(srcGroup, noteTitle);
+    if (item) delete item;
 
-    int index = ui->tabWidgetNote->indexOf(noteItem);
     ui->tabWidgetNote->removeTab(index);
     delete noteItem;
 
+    QDir().mkpath(notebookPath(noteBookName));
     QFile::rename(srcPath,dstPath);
 }
 
@@ -1034,17 +1325,18 @@ void MainWindow::sltListActionMove()
     QAction* action = static_cast<QAction*>(sender());
     QString noteBookName = action->text();
 
-    QListWidgetItem* item = ui->listWidgetFile->currentItem();
-    if (!item)
+    QTreeWidgetItem* item = ui->treeWidgetFile->currentItem();
+    if (!item || item->data(0, ITEM_KIND_ROLE).toInt() != ITEM_NOTE)
     {
         QMessageBox::information(this,tr("提示"),tr("请选择一个笔记进行移动"));
         return;
     }
 
-    QString noteTitle = item->text();
+    QString noteTitle = item->text(0);
+    QString srcGroup = item->parent() ? item->parent()->text(0) : QString();
 
-    QString srcPath = QString("data\\%1\\%2.enote").arg(m_notebook).arg(noteTitle);
-    QString dstPath = QString("data\\%1\\%2.enote").arg(noteBookName).arg(noteTitle);
+    QString srcPath = noteFilePath(m_notebook, srcGroup, noteTitle);
+    QString dstPath = noteFilePath(noteBookName, QString(), noteTitle);
 
     if (QFile::exists(dstPath))
     {
@@ -1052,7 +1344,8 @@ void MainWindow::sltListActionMove()
         return;
     }
 
-    NoteWidget* noteItem = ui->tabWidgetNote->findChild<NoteWidget*>(noteTitle);
+    QString key = tabKey(srcGroup, noteTitle);
+    NoteWidget* noteItem = ui->tabWidgetNote->findChild<NoteWidget*>(key);
     if (noteItem)
     {
         int index = ui->tabWidgetNote->indexOf(noteItem);
@@ -1060,10 +1353,189 @@ void MainWindow::sltListActionMove()
         delete noteItem;
     }
 
-    delete ui->listWidgetFile->takeItem(ui->listWidgetFile->currentRow());
+    delete item;
 
-
+    QDir().mkpath(notebookPath(noteBookName));
     QFile::rename(srcPath,dstPath);
+}
+
+void MainWindow::sltListActionGroupMove()
+{
+    QAction* action = static_cast<QAction*>(sender());
+    QString targetGroup = action->data().toString();
+    moveNoteToGroup(ui->treeWidgetFile->currentItem(), targetGroup);
+}
+
+void MainWindow::sltNoteDropped(QTreeWidgetItem* noteItem, const QString& targetGroup)
+{
+    moveNoteToGroup(noteItem, targetGroup);
+}
+
+void MainWindow::moveNoteToGroup(QTreeWidgetItem* item, const QString& targetGroup)
+{
+    if (!item || item->data(0, ITEM_KIND_ROLE).toInt() != ITEM_NOTE) return;
+
+    QString noteTitle = item->text(0);
+    QString srcGroup = item->parent() ? item->parent()->text(0) : QString();
+    if (srcGroup == targetGroup) return;
+
+    QString srcPath = noteFilePath(m_notebook, srcGroup, noteTitle);
+    QString dstPath = noteFilePath(m_notebook, targetGroup, noteTitle);
+    if (QFile::exists(dstPath))
+    {
+        QMessageBox::information(this,tr("提示"),tr("目标分组已经包含有同名笔记，无法移动"));
+        return;
+    }
+
+    QDir().mkpath(groupPath(m_notebook, targetGroup));
+    if (!QFile::rename(srcPath, dstPath))
+    {
+        QMessageBox::information(this,tr("提示"),tr("移动失败"));
+        return;
+    }
+
+    QString key = tabKey(srcGroup, noteTitle);
+    NoteWidget* noteItem = ui->tabWidgetNote->findChild<NoteWidget*>(key);
+    if (noteItem)
+    {
+        noteItem->setGroup(targetGroup);
+        noteItem->rename(noteTitle);
+    }
+
+    delete item;
+    uint now = QDateTime::currentDateTime().toTime_t();
+    QFileInfo fi(dstPath);
+    QTreeWidgetItem* newItem = addNoteItem(targetGroup, noteTitle,
+                                           fi.birthTime().isValid() ? fi.birthTime().toTime_t() : now,
+                                           fi.lastModified().isValid() ? fi.lastModified().toTime_t() : now);
+    if (newItem && newItem->parent()) newItem->parent()->setExpanded(true);
+    ui->treeWidgetFile->setCurrentItem(newItem);
+}
+
+void MainWindow::sltGroupActionNew()
+{
+    RenameDialog dlg(this);
+    dlg.setWindowTitle(tr("新建分组"));
+    if (dlg.exec() != QDialog::Accepted) return;
+
+    QString name = normalizedEntryName(dlg.m_newName);
+    if (!isValidEntryName(name))
+    {
+        QMessageBox::information(this, tr("提示"), tr("分组名称不能为空，且不能包含 / \\ |"));
+        return;
+    }
+
+    QString gp = groupPath(m_notebook, name);
+    if (QFile::exists(gp))
+    {
+        QMessageBox::information(this,tr("提示"),tr("分组已存在"));
+        return;
+    }
+
+    QDir().mkpath(gp);
+    QTreeWidgetItem* item = addGroupItem(name);
+    ui->treeWidgetFile->setCurrentItem(item);
+}
+
+void MainWindow::sltGroupActionRename()
+{
+    QTreeWidgetItem* item = ui->treeWidgetFile->currentItem();
+    if (!item || item->data(0, ITEM_KIND_ROLE).toInt() != ITEM_GROUP) return;
+
+    QString oldName = item->text(0);
+    RenameDialog dlg(oldName, this);
+    dlg.setWindowTitle(tr("重命名分组"));
+    if (dlg.exec() != QDialog::Accepted) return;
+
+    QString newName = normalizedEntryName(dlg.m_newName);
+    if (!isValidEntryName(newName))
+    {
+        QMessageBox::information(this, tr("提示"), tr("分组名称不能为空，且不能包含 / \\ |"));
+        return;
+    }
+
+    if (newName == oldName)
+    {
+        return;
+    }
+
+    QString newPath = groupPath(m_notebook, newName);
+    if (QFile::exists(newPath))
+    {
+        QMessageBox::information(this,tr("提示"),tr("分组已存在"));
+        return;
+    }
+
+    if (!QDir().rename(groupPath(m_notebook, oldName), newPath))
+    {
+        QMessageBox::information(this,tr("提示"),tr("重命名失败"));
+        return;
+    }
+
+    for (int i = 0; i < ui->tabWidgetNote->count(); i++)
+    {
+        NoteWidget* w = (NoteWidget*)ui->tabWidgetNote->widget(i);
+        if (w && w->group() == oldName)
+        {
+            QString tab = ui->tabWidgetNote->tabText(i);
+            w->setGroup(newName);
+            w->rename(tab);
+        }
+    }
+
+    item->setText(0, newName);
+}
+
+void MainWindow::sltGroupActionDelete()
+{
+    QTreeWidgetItem* item = ui->treeWidgetFile->currentItem();
+    if (!item || item->data(0, ITEM_KIND_ROLE).toInt() != ITEM_GROUP) return;
+
+    QString groupName = item->text(0);
+    int childCount = item->childCount();
+    QString msg = childCount > 0
+        ? tr("分组「%1」下还有 %2 条笔记，确认全部删除？").arg(groupName).arg(childCount)
+        : tr("确认删除分组「%1」？").arg(groupName);
+
+    if (QMessageBox::Yes != QMessageBox::question(this, tr("提示"), msg,
+                                                  QMessageBox::Yes|QMessageBox::No, QMessageBox::No))
+    {
+        return;
+    }
+
+    const QString gPath = groupPath(m_notebook, groupName);
+
+    for (int i = ui->tabWidgetNote->count() - 1; i >= 0; i--)
+    {
+        NoteWidget* w = (NoteWidget*)ui->tabWidgetNote->widget(i);
+        if (w && w->group() == groupName)
+        {
+            ui->tabWidgetNote->removeTab(i);
+            delete w;
+        }
+    }
+
+    QDir groupDir(gPath);
+    if (groupDir.isEmpty())
+    {
+        groupDir.rmdir(gPath);
+    }
+    else
+    {
+        moveToTrash(gPath);
+    }
+
+    delete item;
+}
+
+void MainWindow::sltGroupActionNewNote()
+{
+    QTreeWidgetItem* item = ui->treeWidgetFile->currentItem();
+    if (!item) return;
+    QString groupName = (item->data(0, ITEM_KIND_ROLE).toInt() == ITEM_GROUP)
+                        ? item->text(0)
+                        : (item->parent() ? item->parent()->text(0) : QString());
+    newTab(groupName);
 }
 
 void MainWindow::sltTabMenuRequested(const QPoint& pos)
@@ -1078,5 +1550,38 @@ void MainWindow::sltComboboxMenuRequested(const QPoint &pos)
 
 void MainWindow::sltListMenuRequested(const QPoint &pos)
 {
+    QTreeWidgetItem* item = ui->treeWidgetFile->itemAt(pos);
+    if (!item)
+    {
+        ui->treeWidgetFile->setCurrentItem(nullptr);
+        m_blankMenu->popup(QCursor::pos());
+        return;
+    }
+
+    ui->treeWidgetFile->setCurrentItem(item);
+    if (item->data(0, ITEM_KIND_ROLE).toInt() == ITEM_GROUP)
+    {
+        m_groupMenu->popup(QCursor::pos());
+        return;
+    }
+
+    QList<QAction*> oldActions = m_listGroupMoveMenu->actions();
+    qDeleteAll(oldActions);
+    m_listGroupMoveMenu->clear();
+
+    QString currentGroup = item->parent() ? item->parent()->text(0) : QString();
+    QStringList groups = listGroups();
+
+    auto addGroupTarget = [this, currentGroup](const QString& display, const QString& data){
+        QAction* a = new QAction(display, this);
+        a->setData(data);
+        a->setEnabled(data != currentGroup);
+        connect(a, SIGNAL(triggered()), this, SLOT(sltListActionGroupMove()));
+        m_listGroupMoveMenu->addAction(a);
+    };
+
+    addGroupTarget(tr("(无分组)"), QString());
+    for (const QString& group : groups) addGroupTarget(group, group);
+
     m_listMenu->popup(QCursor::pos());
 }

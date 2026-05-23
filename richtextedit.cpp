@@ -1,5 +1,7 @@
 ﻿#include "richtextedit.h"
+#include <QApplication>
 #include <QClipboard>
+#include <QEvent>
 
 #if defined(_MSC_VER) && (_MSC_VER >= 1600)
 # pragma execution_character_set("utf-8")
@@ -16,6 +18,34 @@ RichTextEdit::RichTextEdit(QWidget *parent):QxTextEdit(parent)
     connect(this, SIGNAL(imageRightClicked()), this, SLOT(sltImageRightClicked()));
     connect(m_action_copy, SIGNAL(triggered()), this, SLOT(sltCopyImage()));
     connect(m_action_save, SIGNAL(triggered()), this, SLOT(sltSaveImage()));
+
+    flattenInactivePalette();
+    qApp->installEventFilter(this);
+}
+
+void RichTextEdit::flattenInactivePalette()
+{
+    QPalette p = QApplication::palette();
+    const QPalette::ColorRole roles[] = {
+        QPalette::Text, QPalette::Base, QPalette::WindowText,
+        QPalette::Window, QPalette::Highlight, QPalette::HighlightedText
+    };
+    for (QPalette::ColorRole role : roles)
+    {
+        p.setColor(QPalette::Inactive, role, p.color(QPalette::Active, role));
+    }
+    setPalette(p);
+    viewport()->setPalette(p);
+    viewport()->update();
+}
+
+bool RichTextEdit::eventFilter(QObject *watched, QEvent *event)
+{
+    if (watched == qApp && event->type() == QEvent::ApplicationPaletteChange)
+    {
+        flattenInactivePalette();
+    }
+    return QxTextEdit::eventFilter(watched, event);
 }
 
 void RichTextEdit::sltImageRightClicked()

@@ -17,7 +17,12 @@ public slots:
     void sltCopyImage();
     void sltSaveImage();
 
+protected:
+    bool eventFilter(QObject *watched, QEvent *event) override;
+
 private:
+    void flattenInactivePalette();
+
     QMenu *m_menu;
     QAction* m_action_copy;
     QAction* m_action_save;

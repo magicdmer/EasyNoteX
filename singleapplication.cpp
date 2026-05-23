@@ -1,6 +1,8 @@
-﻿#include "SingleApplication.h"
+﻿#include "singleapplication.h"
+#include "helpfunc.h"
 #include <QtNetwork/QLocalSocket>
 #include <QFileInfo>
+#include <QMetaObject>
 
 #define TIME_OUT   500
 
@@ -37,11 +39,30 @@ void SingleApplication::NewLocalConnection()
     if(localSocket)
     {
         localSocket->waitForReadyRead(TIME_OUT * 2);
+        const QString message = QString::fromUtf8(localSocket->readAll()).trimmed();
         delete localSocket;
 
-        //其他处理,如:读取启动参数
-        ActivateWindow();
+        if (message == QStringLiteral("toggle"))
+        {
+            ToggleWindow();
+        }
+        else
+        {
+            ActivateWindow();
+        }
     }
+}
+
+QString SingleApplication::startupAction() const
+{
+    if (isUos())
+    {
+        return QStringLiteral("toggle");
+    }
+
+    return arguments().contains(QStringLiteral("--toggle-window"))
+            ? QStringLiteral("toggle")
+            : QStringLiteral("activate");
 }
 
 
@@ -57,8 +78,9 @@ void SingleApplication::InitLocalConnection()
     if(socket.waitForConnected(TIME_OUT))
     {
         isRunnings = true;
-
-        //其他处理,如:将启动参数发送到服务端
+        socket.write(startupAction().toUtf8());
+        socket.flush();
+        socket.waitForBytesWritten(TIME_OUT);
         return;
     }
 
@@ -93,5 +115,13 @@ void SingleApplication::ActivateWindow()
     {
         w->show();
         w->setWindowState(w->windowState() & ~Qt::WindowMinimized | Qt::WindowActive);
+    }
+}
+
+void SingleApplication::ToggleWindow()
+{
+    if (w)
+    {
+        QMetaObject::invokeMethod(w, "sltHotKey", Qt::DirectConnection);
     }
 }

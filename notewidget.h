@@ -18,9 +18,12 @@ class NoteWidget : public QWidget
 public:
     explicit NoteWidget(QWidget *parent = nullptr);
     NoteWidget(QWidget *parent,QString noteName,QString fileName,QFont font);
+    NoteWidget(QWidget *parent,QString noteName,QString groupName,QString fileName,QFont font);
     ~NoteWidget();
 
 public:
+    QString group() const { return m_group; }
+    void setGroup(const QString& group) { m_group = group; }
     bool setFile(QString& fileName);
     bool rename(QString& newName);
     bool find(QString& text,QTextDocument::FindFlags flags);
@@ -46,6 +49,7 @@ private:
     QString m_filePath;
     RichTextEdit* m_textEdit;
     QString m_noteName;
+    QString m_group;
     QTimer* m_typingTimer;
     bool m_textChanged;
     QString m_filterText;

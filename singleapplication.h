@@ -21,12 +21,14 @@ private slots:
     void NewLocalConnection();
 
 private:
+    QString startupAction() const;
     //初始化本地连接
     void InitLocalConnection();
     //创建服务端
     void NewLocalServer();
     //激活窗口
     void ActivateWindow();
+    void ToggleWindow();
 
 
     QLocalServer *localserver;        //是否已有实例在运行

@@ -1,4 +1,5 @@
 ﻿#include "mainwindow.h"
+#include "helpfunc.h"
 
 #include <QApplication>
 #include <QDir>
@@ -6,13 +7,20 @@
 #include "singleapplication.h"
 #include <QTranslator>
 #include <QSharedMemory>
+#include <QStyleFactory>
 
 #if defined(_MSC_VER) && (_MSC_VER >= 1600)
 # pragma execution_character_set("utf-8")
 #endif
 
+#define APP_VERSION "1.3.0"
+
 int main(int argc, char *argv[])
 {
+#ifdef HAVE_WAYLAND
+    qputenv("QT_QPA_PLATFORM", "xcb");
+#endif
+
     QApplication::setAttribute(Qt::AA_EnableHighDpiScaling);
     QApplication::setAttribute(Qt::AA_UseHighDpiPixmaps);
 #if (QT_VERSION > QT_VERSION_CHECK(5,14,0))
@@ -25,16 +33,12 @@ int main(int argc, char *argv[])
        return 0;
     }
 
-    //这是为了保险，因为有时候第一个SingleApplication卡主后，第二个还能运行
-    QSharedMemory mem(QApplication::applicationFilePath());
-    if(!mem.create(1))
-    {
-       return 0;
-    }
+    a.setApplicationVersion(APP_VERSION);
+    ensureAppDirs();
 
-    //a.setQuitOnLastWindowClosed(false);
-
-    QDir::setCurrent(a.applicationDirPath());
+#ifdef Q_OS_LINUX
+    a.setStyle(QStyleFactory::create("Fusion"));
+#endif
 
 
     QTranslator translator;
@@ -43,10 +47,7 @@ int main(int argc, char *argv[])
 
     MainWindow w;
     a.w = &w;
-    if (argc != 2)
-    {
-        w.show();
-    }
+    w.show();
 
     return a.exec();
 }
