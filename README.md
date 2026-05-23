@@ -1,4 +1,4 @@
-# SimpleNote
+# EasyNoteX
 
 #### 介绍
 一个支持富文本与表格的桌面笔记软件。
