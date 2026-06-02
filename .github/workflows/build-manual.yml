@@ -1,0 +1,148 @@
+name: Manual Build Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_windows:
+        description: 'Build Windows'
+        required: false
+        default: true
+        type: boolean
+      build_linux:
+        description: 'Build Linux DEB'
+        required: false
+        default: true
+        type: boolean
+
+jobs:
+  build-windows:
+    if: ${{ inputs.build_windows }}
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup MSVC environment
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: amd64
+
+      - name: Install Qt5
+        uses: jurplel/install-qt-action@v3
+        with:
+          version: '5.15.2'
+          host: 'windows'
+          target: 'desktop'
+          arch: 'win64_msvc2019_64'
+          cache: true
+
+      - name: Build EasyNoteX
+        run: |
+          qmake EasyNoteX.pro -spec win32-msvc
+          nmake release
+
+      - name: Deploy dependencies
+        run: |
+          mkdir deploy\EasyNoteX
+          copy release\EasyNoteX.exe deploy\EasyNoteX\
+          windeployqt.exe --release deploy\EasyNoteX\EasyNoteX.exe
+
+      - name: Package for Windows
+        run: |
+          cd deploy
+          7z a -r ..\EasyNoteX-Windows-Qt5.zip EasyNoteX\
+          cd ..
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: EasyNoteX-Windows-Qt5
+          path: EasyNoteX-Windows-Qt5.zip
+
+  build-linux:
+    if: ${{ inputs.build_linux }}
+    runs-on: ubuntu-latest
+    container:
+      image: debian:10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          printf 'deb http://archive.debian.org/debian buster main\n' > /etc/apt/sources.list
+          printf 'deb http://archive.debian.org/debian-security buster/updates main\n' >> /etc/apt/sources.list
+          echo 'Acquire::Check-Valid-Until "false";' > /etc/apt/apt.conf.d/99no-check-valid-until
+          apt-get update
+          apt-get install -y qtbase5-dev qttools5-dev libqt5x11extras5-dev build-essential libgl1-mesa-dev libxkbcommon-x11-0 libxkbcommon0 libdbus-1-3 wget ca-certificates git dpkg dpkg-dev
+      - name: Build EasyNoteX
+        run: |
+          export QT_SELECT=5
+          qmake EasyNoteX.pro
+          make -j$(nproc)
+
+      - name: Create DEB package structure
+        env:
+          VERSION: 1.0.0
+        run: |
+          # Create directory structure
+          PKG_DIR=EasyNoteX_${VERSION}_amd64
+          mkdir -p ${PKG_DIR}/DEBIAN
+          mkdir -p ${PKG_DIR}/opt/EasyNoteX
+          mkdir -p ${PKG_DIR}/usr/bin
+          mkdir -p ${PKG_DIR}/usr/share/applications
+          mkdir -p ${PKG_DIR}/usr/share/icons/hicolor/64x64/apps
+          
+          # Copy binary
+          cp EasyNoteX ${PKG_DIR}/opt/EasyNoteX/
+          chmod 755 ${PKG_DIR}/opt/EasyNoteX/EasyNoteX
+
+          # Copy application icon
+          cp images/easynotex.png ${PKG_DIR}/usr/share/icons/hicolor/64x64/apps/easynotex.png
+          chmod 644 ${PKG_DIR}/usr/share/icons/hicolor/64x64/apps/easynotex.png
+          
+          # Create symlink in /usr/bin
+          ln -s /opt/EasyNoteX/EasyNoteX ${PKG_DIR}/usr/bin/easynotex
+          
+          # Create .desktop file
+          cat > ${PKG_DIR}/usr/share/applications/easynotex.desktop << 'EOFILE'
+          [Desktop Entry]
+          Type=Application
+          Name=EasyNoteX
+          Name[zh_CN]=简单记 X
+          Comment=Rich-text note-taking app
+          Comment[zh_CN]=支持富文本的桌面笔记软件
+          Exec=easynotex
+          Icon=easynotex
+          Terminal=false
+          Categories=Office;Utility;TextEditor;
+          StartupNotify=true
+          EOFILE
+          chmod 644 ${PKG_DIR}/usr/share/applications/easynotex.desktop
+          
+          # Create control file
+          cat > ${PKG_DIR}/DEBIAN/control << EOFILE
+          Package: easynotex
+          Version: ${VERSION}
+          Section: utils
+          Priority: optional
+          Architecture: amd64
+          Homepage: https://github.com/magicdmer/EasyNoteX
+          Depends: libc6 (>= 2.28), libgl1, libqt5core5a (>= 5.11.3), libqt5gui5 (>= 5.11.3), libqt5help5 (>= 5.11.3), libqt5network5 (>= 5.11.3), libqt5sql5 (>= 5.11.3), libqt5widgets5 (>= 5.11.3), libqt5x11extras5 (>= 5.11.3), libqt5xml5 (>= 5.11.3), libstdc++6, libx11-6
+          Maintainer: magicdmer <magicdmer@gmail.com>
+          Installed-Size: 540
+          Description: 基于 Qt 的桌面笔记软件，支持富文本与表格
+           EasyNoteX 是 EasyNote 的增强版本，
+           支持富文本编辑、表格插入、记事本分类、标签页编辑、
+           即时保存、托盘驻留和全局快捷键。
+          EOFILE
+          chmod 644 ${PKG_DIR}/DEBIAN/control
+      - name: Build DEB package
+        env:
+          VERSION: 1.0.0
+        run: |
+          dpkg-deb --build EasyNoteX_${VERSION}_amd64 easynotex_${VERSION}_amd64.deb
+          ls -lah *.deb
+
+      - name: Upload Linux artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: EasyNoteX-Linux-DEB
+          path: easynotex_*.deb
