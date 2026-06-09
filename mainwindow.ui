@@ -126,11 +126,7 @@
     <property name="title">
      <string>选项</string>
     </property>
-    <addaction name="actionFont"/>
     <addaction name="actionTop"/>
-    <addaction name="actionDark"/>
-    <addaction name="actionFontColor"/>
-    <addaction name="actionBgColor"/>
     <addaction name="actionSet"/>
    </widget>
    <widget class="QMenu" name="menu_4">
@@ -148,16 +144,6 @@
   <action name="actionSaveToHtml">
    <property name="text">
     <string>另存为 html</string>
-   </property>
-  </action>
-  <action name="actionFont">
-   <property name="text">
-    <string>字体</string>
-   </property>
-  </action>
-  <action name="action_4">
-   <property name="text">
-    <string>背景颜色</string>
    </property>
   </action>
   <action name="actionSet">
@@ -196,24 +182,6 @@
   <action name="actionSaveToTxt">
    <property name="text">
     <string>另存为 txt</string>
-   </property>
-  </action>
-  <action name="actionDark">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
-   <property name="text">
-    <string>夜间模式</string>
-   </property>
-  </action>
-  <action name="actionBgColor">
-   <property name="text">
-    <string>背景颜色</string>
-   </property>
-  </action>
-  <action name="actionFontColor">
-   <property name="text">
-    <string>文字颜色</string>
    </property>
   </action>
  </widget>

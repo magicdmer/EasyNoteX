@@ -1,10 +1,9 @@
-﻿#include "mainwindow.h"
+#include "mainwindow.h"
 #include "ui_mainwindow.h"
 #include "helpfunc.h"
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
-#include <QFontDialog>
 #include "renamedialog.h"
 #include <QFileDialog>
 #include <QWindowStateChangeEvent>
@@ -15,7 +14,6 @@
 #include <QShortcut>
 #include <QMessageBox>
 #include <QDateTime>
-#include <QStyleFactory>
 #include <QCursor>
 #include <QGuiApplication>
 #include <QScreen>
@@ -181,6 +179,8 @@ MainWindow::MainWindow(QWidget *parent)
         QFont font("微软雅黑",14);
         m_setting->setValue("/Editor/font",font.toString());
         m_editor_font = font;
+        m_default_pen = QColor(Qt::black);
+        m_default_paper = QColor(Qt::white);
         m_hotkey = "Alt+O";
         m_sort_type = SORT_BY_NAME;
     }
@@ -198,6 +198,18 @@ MainWindow::MainWindow(QWidget *parent)
 
         QString strFont = m_setting->value("/Editor/font").toString();
         m_editor_font.fromString(strFont);
+
+        // 新建便签的默认笔色/纸色（缺省为黑字白底）。
+        m_default_pen = QColor(m_setting->value("/Editor/pen_color").toString());
+        if (!m_default_pen.isValid())
+        {
+            m_default_pen = QColor(Qt::black);
+        }
+        m_default_paper = QColor(m_setting->value("/Editor/paper_color").toString());
+        if (!m_default_paper.isValid())
+        {
+            m_default_paper = QColor(Qt::white);
+        }
 
         m_hotkey = m_setting->value("hotkey").toString();
         int keep_top = m_setting->value("keep_top").toInt(0);
@@ -251,12 +263,8 @@ MainWindow::MainWindow(QWidget *parent)
         }
     }
 
-    connect(ui->actionFont,SIGNAL(triggered()),this,SLOT(sltActionFontClick()));
     connect(ui->actionSet,SIGNAL(triggered()),this,SLOT(sltSet()));
     connect(ui->actionTop,SIGNAL(triggered()),this,SLOT(sltKeepTop()));
-    connect(ui->actionDark, SIGNAL(triggered()), this, SLOT(sltDarkMode()));
-    connect(ui->actionFontColor, SIGNAL(triggered()), this, SLOT(sltSetFontColor()));
-    connect(ui->actionBgColor, SIGNAL(triggered()), this, SLOT(sltSetBgColor()));
     connect(ui->actionAbout,SIGNAL(triggered()),this,SLOT(sltAbout()));
     connect(ui->treeWidgetFile,SIGNAL(itemDoubleClicked(QTreeWidgetItem *, int)),this,SLOT(sltTreeItemDoubleClicked(QTreeWidgetItem *, int)));
     connect(ui->comboBox,SIGNAL(currentIndexChanged(const QString&)),
@@ -469,7 +477,7 @@ void MainWindow::initNoteBook()
 
     if (noNotes)
     {
-        NoteWidget* defaultNote = new NoteWidget(ui->tabWidgetNote,m_notebook,QString(),tr("默认页"),m_editor_font);
+        NoteWidget* defaultNote = new NoteWidget(ui->tabWidgetNote,m_notebook,QString(),tr("默认页"),m_editor_font,m_default_pen,m_default_paper);
         ui->tabWidgetNote->addTab(defaultNote,tr("默认页"));
         addNoteItem(QString(), tr("默认页"),
                     QDateTime::currentDateTime().toTime_t(),
@@ -505,7 +513,7 @@ void MainWindow::initNoteBook()
                 QString filePath = noteFilePath(m_notebook, group, fileName);
                 if (QFile::exists(filePath))
                 {
-                    NoteWidget* note = new NoteWidget(ui->tabWidgetNote,m_notebook,group,fileName,m_editor_font);
+                    NoteWidget* note = new NoteWidget(ui->tabWidgetNote,m_notebook,group,fileName,m_editor_font,m_default_pen,m_default_paper);
                     ui->tabWidgetNote->addTab(note,fileName);
                     if (entry == currentNote || fileName == currentNote)
                     {
@@ -724,7 +732,7 @@ void MainWindow::newTab(const QString& groupName)
         QString newName = QString("新建页 %1").arg(i);
         if (!findNoteItem(groupName, newName))
         {
-            NoteWidget* note = new NoteWidget(ui->tabWidgetNote,m_notebook,groupName,newName,m_editor_font);
+            NoteWidget* note = new NoteWidget(ui->tabWidgetNote,m_notebook,groupName,newName,m_editor_font,m_default_pen,m_default_paper);
             ui->tabWidgetNote->addTab(note,newName);
             ui->tabWidgetNote->setCurrentWidget(note);
 
@@ -786,25 +794,6 @@ void MainWindow::sortFileList()
     initNoteBook();
 }
 
-void MainWindow::sltActionFontClick()
-{
-    bool ok;
-    QFont font = QFontDialog::getFont(&ok,m_editor_font,this);
-    if (ok)
-    {
-        for (int i = 0; i < ui->tabWidgetNote->count(); i++)
-        {
-            NoteWidget* widget = (NoteWidget*)ui->tabWidgetNote->widget(i);
-            if (widget)
-            {
-                widget->setCurrentFont(font);
-            }
-        }
-
-        m_setting->setValue("/Editor/font",font.toString());
-    }
-}
-
 void MainWindow::sltTreeItemDoubleClicked(QTreeWidgetItem *item, int column)
 {
     Q_UNUSED(column);
@@ -820,7 +809,7 @@ void MainWindow::sltTreeItemDoubleClicked(QTreeWidgetItem *item, int column)
     }
     else
     {
-        NoteWidget* note = new NoteWidget(ui->tabWidgetNote,m_notebook,group,fileName,m_editor_font);
+        NoteWidget* note = new NoteWidget(ui->tabWidgetNote,m_notebook,group,fileName,m_editor_font,m_default_pen,m_default_paper);
         ui->tabWidgetNote->addTab(note,fileName);
         ui->tabWidgetNote->setCurrentWidget(note);
     }
@@ -913,7 +902,7 @@ void MainWindow::sltHotKey()
     {
         this->show();
 
-        this->setWindowState(this->windowState() & ~Qt::WindowMinimized | Qt::WindowActive);
+        this->setWindowState((this->windowState() & ~Qt::WindowMinimized) | Qt::WindowActive);
     }
     else
     {
@@ -963,6 +952,11 @@ void MainWindow::sltSet()
             m_sort_type = SortType(dlg.m_sort_type);
             sortFileList();
         }
+
+        // 刷新“新建便签默认样式”，仅影响之后新建的便签。
+        m_editor_font = dlg.m_defaultFont;
+        m_default_pen = dlg.m_defaultPen;
+        m_default_paper = dlg.m_defaultPaper;
     }
 }
 
@@ -978,76 +972,6 @@ void MainWindow::sltKeepTop()
     }
 
     show();
-}
-
-void MainWindow::sltDarkMode()
-{
-    static QPalette lightPalette;
-
-    if (ui->actionDark->isChecked())
-    {
-    #ifdef Q_OS_WIN32
-        qApp->setStyle(QStyleFactory::create("Fusion"));
-    #endif
-
-        lightPalette = qApp->palette();
-
-        QPalette darkPalette;
-        darkPalette.setColor(QPalette::Window,QColor(53,53,53));
-        darkPalette.setColor(QPalette::WindowText,Qt::white);
-        darkPalette.setColor(QPalette::Disabled,QPalette::WindowText,QColor(127,127,127));
-        darkPalette.setColor(QPalette::Base,QColor(42,42,42));
-        darkPalette.setColor(QPalette::AlternateBase,QColor(66,66,66));
-        darkPalette.setColor(QPalette::ToolTipBase,Qt::white);
-        darkPalette.setColor(QPalette::ToolTipText,Qt::white);
-        darkPalette.setColor(QPalette::Text,Qt::white);
-        darkPalette.setColor(QPalette::Disabled,QPalette::Text,QColor(127,127,127));
-        darkPalette.setColor(QPalette::Dark,QColor(35,35,35));
-        darkPalette.setColor(QPalette::Shadow,QColor(20,20,20));
-        darkPalette.setColor(QPalette::Button,QColor(53,53,53));
-        darkPalette.setColor(QPalette::ButtonText,Qt::white);
-        darkPalette.setColor(QPalette::Disabled,QPalette::ButtonText,QColor(127,127,127));
-        darkPalette.setColor(QPalette::BrightText,Qt::red);
-        darkPalette.setColor(QPalette::Link,QColor(42,130,218));
-        darkPalette.setColor(QPalette::Highlight,QColor(42,130,218));
-        darkPalette.setColor(QPalette::Disabled,QPalette::Highlight,QColor(80,80,80));
-        darkPalette.setColor(QPalette::HighlightedText,Qt::white);
-        darkPalette.setColor(QPalette::Disabled,QPalette::HighlightedText,QColor(127,127,127));
-
-        qApp->setPalette(darkPalette);
-    }
-    else
-    {
-    #ifdef Q_OS_WIN32
-        qApp->setStyle(QStyleFactory::create("windowsvista"));
-    #endif
-
-        qApp->setPalette(lightPalette);
-    }
-
-    keepTreeAlwaysActive();
-}
-
-void MainWindow::sltSetFontColor()
-{
-    NoteWidget* widget = (NoteWidget*)ui->tabWidgetNote->currentWidget();
-    if (!widget) return;
-
-    QColor color = QColorDialog::getColor(Qt::white,this);
-    if(color.isValid())
-        widget->setFontColor(color);
-}
-
-void MainWindow::sltSetBgColor()
-{
-    NoteWidget* widget = (NoteWidget*)ui->tabWidgetNote->currentWidget();
-    if (!widget) return;
-
-    QColor color = QColorDialog::getColor(Qt::white,this);
-    QPalette palette;
-    palette.setColor(QPalette::Base,color);
-    if(color.isValid())
-        widget->setBgColor(palette);
 }
 
 void MainWindow::sltAbout()

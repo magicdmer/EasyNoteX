@@ -6,6 +6,7 @@
 #include <QVector>
 #include <QSettings>
 #include <QFont>
+#include <QColor>
 #include <QListWidgetItem>
 #include <QTreeWidgetItem>
 #include "finddialog.h"
@@ -105,7 +106,6 @@ protected:
     bool eventFilter(QObject *watched, QEvent *event) Q_DECL_OVERRIDE;
 
 public slots:
-    void sltActionFontClick();
     void sltTreeItemDoubleClicked(QTreeWidgetItem *item, int column);
     void sltRemoveTab(int index);
     void sltTabDoubleClicked(int index);
@@ -142,9 +142,6 @@ public slots:
     void sltListActionGroupMove();
     void sltNoteDropped(QTreeWidgetItem* noteItem, const QString& targetGroup);
     void sltActionInsertTable();
-    void sltDarkMode();
-    void sltSetFontColor();
-    void sltSetBgColor();
 
 public:
     bool find(QString& text,QTextDocument::FindFlags flags);
@@ -173,6 +170,8 @@ private:
     QVector<NoteWidget*> m_vecNoteWidget;
     QSettings* m_setting;
     QFont m_editor_font;
+    QColor m_default_pen;
+    QColor m_default_paper;
     FindDialog* m_findDlg;
     QSystemTrayIcon* m_pTrayIcon;
     QxtGlobalShortcut* m_shortcut;

@@ -1,11 +1,17 @@
-﻿#ifndef NOTEWIDGET_H
+#ifndef NOTEWIDGET_H
 #define NOTEWIDGET_H
 
 #include <QWidget>
 #include <QFont>
+#include <QColor>
 #include <QTextDocument>
+#include <QTextCharFormat>
 #include "richtextedit.h"
 #include <QTimer>
+
+class QFontComboBox;
+class QSpinBox;
+class QToolButton;
 
 namespace Ui {
 class NoteWidget;
@@ -17,8 +23,10 @@ class NoteWidget : public QWidget
 
 public:
     explicit NoteWidget(QWidget *parent = nullptr);
-    NoteWidget(QWidget *parent,QString noteName,QString fileName,QFont font);
-    NoteWidget(QWidget *parent,QString noteName,QString groupName,QString fileName,QFont font);
+    NoteWidget(QWidget *parent,QString noteName,QString fileName,QFont font,
+               QColor penColor = QColor(),QColor paperColor = QColor());
+    NoteWidget(QWidget *parent,QString noteName,QString groupName,QString fileName,QFont font,
+               QColor penColor = QColor(),QColor paperColor = QColor());
     ~NoteWidget();
 
 public:
@@ -29,9 +37,8 @@ public:
     bool find(QString& text,QTextDocument::FindFlags flags);
     bool save(QString& filePath, int type = 0);
     void setTextFont(QFont& font);
-    void setCurrentFont(QFont& font);
-    void setFontColor(QColor& color);
-    void setBgColor(QPalette& palette);
+    void setPenColor(const QColor& color);
+    void setPaperColor(const QColor& color);
     void setTabWidth(int width);
     bool isEmpty();
     void deletefile();
@@ -43,8 +50,19 @@ public:
 public slots:
     void sltTextChanged();
     void sltFilterEntries();
+    void sltFontFamilyChanged(const QFont& font);
+    void sltFontSizeChanged(int size);
+    void sltBoldToggled(bool bold);
+    void sltPickPenColor();
+    void sltPickPaperColor();
 
 private:
+    void buildToolbar();
+    void applyCharFormatToWholeNote(const QTextCharFormat& fmt);
+    void writePaperToHtml(const QColor& color);
+    void syncToolbar();
+    void updateColorButton(QToolButton* button, const QColor& color, bool isBackground);
+
     Ui::NoteWidget *ui;
     QString m_filePath;
     RichTextEdit* m_textEdit;
@@ -53,6 +71,15 @@ private:
     QTimer* m_typingTimer;
     bool m_textChanged;
     QString m_filterText;
+
+    // 当前便签的整篇样式（贴身工具条）
+    QFontComboBox* m_fontCombo;
+    QSpinBox* m_sizeSpin;
+    QToolButton* m_boldBtn;
+    QToolButton* m_penBtn;
+    QToolButton* m_paperBtn;
+    QColor m_penColor;
+    QColor m_paperColor;
 };
 
 #endif // NOTEWIDGET_H

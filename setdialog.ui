@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>311</width>
-    <height>352</height>
+    <height>500</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -165,11 +165,82 @@
     </property>
    </widget>
   </widget>
+  <widget class="QGroupBox" name="groupBox_3">
+   <property name="geometry">
+    <rect>
+     <x>20</x>
+     <y>315</y>
+     <width>271</width>
+     <height>130</height>
+    </rect>
+   </property>
+   <property name="title">
+    <string>新建标签样式</string>
+   </property>
+   <widget class="QLabel" name="labelDefaultFont">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>38</y>
+      <width>40</width>
+      <height>20</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>字体：</string>
+    </property>
+   </widget>
+   <widget class="QPushButton" name="btnDefaultFont">
+    <property name="geometry">
+     <rect>
+      <x>65</x>
+      <y>35</y>
+      <width>185</width>
+      <height>26</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>选择字体…</string>
+    </property>
+   </widget>
+   <widget class="QToolButton" name="btnDefaultPen">
+    <property name="geometry">
+     <rect>
+      <x>20</x>
+      <y>82</y>
+      <width>110</width>
+      <height>28</height>
+     </rect>
+    </property>
+    <property name="toolButtonStyle">
+     <enum>Qt::ToolButtonTextBesideIcon</enum>
+    </property>
+    <property name="text">
+     <string>文字颜色</string>
+    </property>
+   </widget>
+   <widget class="QToolButton" name="btnDefaultPaper">
+    <property name="geometry">
+     <rect>
+      <x>145</x>
+      <y>82</y>
+      <width>110</width>
+      <height>28</height>
+     </rect>
+    </property>
+    <property name="toolButtonStyle">
+     <enum>Qt::ToolButtonTextBesideIcon</enum>
+    </property>
+    <property name="text">
+     <string>背景颜色</string>
+    </property>
+   </widget>
+  </widget>
   <widget class="QPushButton" name="pushButtonOk">
    <property name="geometry">
     <rect>
      <x>60</x>
-     <y>320</y>
+     <y>460</y>
      <width>75</width>
      <height>23</height>
     </rect>
@@ -182,7 +253,7 @@
    <property name="geometry">
     <rect>
      <x>160</x>
-     <y>320</y>
+     <y>460</y>
      <width>75</width>
      <height>23</height>
     </rect>

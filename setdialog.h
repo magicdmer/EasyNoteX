@@ -1,8 +1,12 @@
-﻿#ifndef SETDIALOG_H
+#ifndef SETDIALOG_H
 #define SETDIALOG_H
 
 #include <QDialog>
 #include <QSettings>
+#include <QColor>
+#include <QFont>
+
+class QToolButton;
 
 namespace Ui {
 class SetDialog;
@@ -18,6 +22,9 @@ public:
 
 public slots:
     void sltButtonOkClicked();
+    void sltPickDefaultFont();
+    void sltPickDefaultPen();
+    void sltPickDefaultPaper();
 
 public:
     int m_closeToTray;
@@ -27,7 +34,13 @@ public:
     QString m_shortcut;
     int m_sort_type;
 
+    QFont m_defaultFont;
+    QColor m_defaultPen;
+    QColor m_defaultPaper;
+
 private:
+    void updateColorButton(QToolButton* button, const QColor& color);
+
     Ui::SetDialog *ui;
     QSettings* m_setting;
 };

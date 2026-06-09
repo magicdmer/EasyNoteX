@@ -1,4 +1,4 @@
-﻿#include "notewidget.h"
+#include "notewidget.h"
 #include "ui_notewidget.h"
 #include "helpfunc.h"
 #include <QFile>
@@ -6,6 +6,18 @@
 #include <QDomDocument>
 #include <QImage>
 #include <QDir>
+#include <QBuffer>
+#include <QCryptographicHash>
+#include <QHBoxLayout>
+#include <QFontComboBox>
+#include <QSpinBox>
+#include <QToolButton>
+#include <QColorDialog>
+#include <QFontInfo>
+#include <QIcon>
+#include <QPixmap>
+#include <QPainter>
+#include <QPalette>
 
 #if defined(_MSC_VER) && (_MSC_VER >= 1600)
 # pragma execution_character_set("utf-8")
@@ -17,7 +29,7 @@ NoteWidget::NoteWidget(QWidget *parent) :
 {
     ui->setupUi(this);
     m_textEdit = new RichTextEdit(this);
-    ui->verticalLayout->addWidget(m_textEdit);
+    buildToolbar();
 
     m_textChanged = false;
 
@@ -26,14 +38,18 @@ NoteWidget::NoteWidget(QWidget *parent) :
     connect(m_typingTimer, SIGNAL(timeout()),this, SLOT(sltFilterEntries()));
 
     connect(m_textEdit,SIGNAL(textChanged()),this,SLOT(sltTextChanged()));
+
+    syncToolbar();
 }
 
-NoteWidget::NoteWidget(QWidget *parent,QString noteName, QString fileName, QFont font) :
-    NoteWidget(parent, noteName, QString(), fileName, font)
+NoteWidget::NoteWidget(QWidget *parent,QString noteName, QString fileName, QFont font,
+                       QColor penColor, QColor paperColor) :
+    NoteWidget(parent, noteName, QString(), fileName, font, penColor, paperColor)
 {
 }
 
-NoteWidget::NoteWidget(QWidget *parent,QString noteName, QString groupName, QString fileName, QFont font) :
+NoteWidget::NoteWidget(QWidget *parent,QString noteName, QString groupName, QString fileName, QFont font,
+                       QColor penColor, QColor paperColor) :
     QWidget(parent),
     ui(new Ui::NoteWidget)
 {
@@ -42,19 +58,30 @@ NoteWidget::NoteWidget(QWidget *parent,QString noteName, QString groupName, QStr
     m_textChanged = false;
 
     m_textEdit = new RichTextEdit(this);
-    ui->verticalLayout->addWidget(m_textEdit);
+    buildToolbar();
 
     m_noteName = noteName;
     m_group = groupName;
+    m_penColor = penColor;
+    m_paperColor = paperColor;
 
     setTextFont(font);
     setFile(fileName);
+
+    // 新便签套用全局默认笔色/纸色；已有便签的样式由 load() 从内容还原。
+    if (isEmpty())
+    {
+        if (penColor.isValid()) setPenColor(penColor);
+        if (paperColor.isValid()) setPaperColor(paperColor);
+    }
 
     m_typingTimer = new QTimer( this );
     m_typingTimer->setSingleShot( true );
     connect(m_typingTimer, SIGNAL(timeout()),this, SLOT(sltFilterEntries()));
 
     connect(m_textEdit,SIGNAL(textChanged()),this,SLOT(sltTextChanged()));
+
+    syncToolbar();
 }
 
 NoteWidget::~NoteWidget()
@@ -70,6 +97,62 @@ NoteWidget::~NoteWidget()
     }
 
     delete ui;
+}
+
+void NoteWidget::buildToolbar()
+{
+    QWidget* bar = new QWidget(this);
+    QHBoxLayout* h = new QHBoxLayout(bar);
+    h->setContentsMargins(2, 2, 2, 2);
+    h->setSpacing(4);
+
+    m_fontCombo = new QFontComboBox(bar);
+    m_fontCombo->setMaximumWidth(150);
+    m_fontCombo->setFixedHeight(26);
+    m_fontCombo->setToolTip(tr("字体（整篇）"));
+
+    m_sizeSpin = new QSpinBox(bar);
+    m_sizeSpin->setRange(6, 96);
+    m_sizeSpin->setMaximumWidth(56);
+    m_sizeSpin->setFixedHeight(27);
+    m_sizeSpin->setToolTip(tr("字号（整篇）"));
+
+    m_boldBtn = new QToolButton(bar);
+    m_boldBtn->setText(tr("B"));
+    m_boldBtn->setCheckable(true);
+    m_boldBtn->setFixedSize(26, 26);
+    QFont boldFont = m_boldBtn->font();
+    boldFont.setBold(true);
+    m_boldBtn->setFont(boldFont);
+    m_boldBtn->setToolTip(tr("加粗（整篇）"));
+
+    m_penBtn = new QToolButton(bar);
+    m_penBtn->setFixedSize(26, 26);
+    m_penBtn->setToolButtonStyle(Qt::ToolButtonIconOnly);
+    m_penBtn->setIconSize(QSize(16, 16));
+    m_penBtn->setToolTip(tr("文字颜色（整篇）"));
+
+    m_paperBtn = new QToolButton(bar);
+    m_paperBtn->setFixedSize(26, 26);
+    m_paperBtn->setToolButtonStyle(Qt::ToolButtonIconOnly);
+    m_paperBtn->setIconSize(QSize(16, 16));
+    m_paperBtn->setToolTip(tr("背景颜色（整篇）"));
+
+    h->addWidget(m_fontCombo);
+    h->addWidget(m_sizeSpin);
+    h->addWidget(m_boldBtn);
+    h->addWidget(m_penBtn);
+    h->addWidget(m_paperBtn);
+    h->addStretch(1);
+
+    ui->verticalLayout->addWidget(bar);
+    ui->verticalLayout->addWidget(m_textEdit);
+
+    connect(m_fontCombo, SIGNAL(currentFontChanged(QFont)), this, SLOT(sltFontFamilyChanged(QFont)));
+    connect(m_sizeSpin, SIGNAL(valueChanged(int)), this, SLOT(sltFontSizeChanged(int)));
+    connect(m_boldBtn, SIGNAL(toggled(bool)), this, SLOT(sltBoldToggled(bool)));
+    connect(m_penBtn, SIGNAL(clicked()), this, SLOT(sltPickPenColor()));
+    connect(m_paperBtn, SIGNAL(clicked()), this, SLOT(sltPickPaperColor()));
 }
 
 void NoteWidget::sltFilterEntries()
@@ -96,6 +179,80 @@ void NoteWidget::sltTextChanged()
     m_textChanged = true;
     m_filterText = m_textEdit->toPlainText();
     m_typingTimer->start( 10000 );
+}
+
+void NoteWidget::sltFontFamilyChanged(const QFont& font)
+{
+    QTextCharFormat fmt;
+    fmt.setFontFamily(font.family());
+    applyCharFormatToWholeNote(fmt);
+    m_textEdit->setFocus();
+}
+
+void NoteWidget::sltFontSizeChanged(int size)
+{
+    if (size <= 0)
+    {
+        return;
+    }
+
+    QTextCharFormat fmt;
+    fmt.setFontPointSize(size);
+    applyCharFormatToWholeNote(fmt);
+}
+
+void NoteWidget::sltBoldToggled(bool bold)
+{
+    QTextCharFormat fmt;
+    fmt.setFontWeight(bold ? QFont::Bold : QFont::Normal);
+    applyCharFormatToWholeNote(fmt);
+    m_textEdit->setFocus();
+}
+
+void NoteWidget::sltPickPenColor()
+{
+    QColor init = m_penColor.isValid() ? m_penColor : QColor(Qt::black);
+    QColor color = QColorDialog::getColor(init, this, tr("文字颜色"));
+    if (color.isValid())
+    {
+        setPenColor(color);
+    }
+}
+
+void NoteWidget::sltPickPaperColor()
+{
+    QColor init = m_paperColor.isValid() ? m_paperColor : QColor(Qt::white);
+    QColor color = QColorDialog::getColor(init, this, tr("背景颜色"));
+    if (color.isValid())
+    {
+        setPaperColor(color);
+    }
+}
+
+void NoteWidget::applyCharFormatToWholeNote(const QTextCharFormat& fmt)
+{
+    QTextCursor cursor = m_textEdit->textCursor();
+    int pos = cursor.position();
+    int anchor = cursor.anchor();
+
+    QTextCursor all = m_textEdit->textCursor();
+    all.select(QTextCursor::Document);
+    all.mergeCharFormat(fmt);
+    // 同时合并块级字符格式，覆盖空段落，否则在空段落里新输入会沿用旧格式（如粗体取消不掉）。
+    all.mergeBlockCharFormat(fmt);
+
+    QTextCursor restore = m_textEdit->textCursor();
+    restore.setPosition(anchor);
+    restore.setPosition(pos, QTextCursor::KeepAnchor);
+    m_textEdit->setTextCursor(restore);
+
+    // 让后续输入也沿用该格式。
+    m_textEdit->mergeCurrentCharFormat(fmt);
+
+    // 整篇格式变化后强制重排并重绘，否则可能出现“文字消失、需缩放窗口才刷新”的问题。
+    QTextDocument* doc = m_textEdit->document();
+    doc->markContentsDirty(0, doc->characterCount());
+    m_textEdit->viewport()->update();
 }
 
 bool NoteWidget::load()
@@ -142,6 +299,21 @@ bool NoteWidget::load()
 
     QString content = doc.toString(0);
     m_textEdit->setHtml(content);
+
+    // 还原该便签保存的纸色（body bgcolor）到编辑器调色板。
+    QDomNodeList bodyNodeList = doc.elementsByTagName("body");
+    if (!bodyNodeList.isEmpty())
+    {
+        QString bg = bodyNodeList.at(0).toElement().attribute("bgcolor");
+        QColor paper(bg);
+        if (paper.isValid())
+        {
+            QPalette palette = m_textEdit->palette();
+            palette.setColor(QPalette::Base, paper);
+            m_textEdit->setPalette(palette);
+            m_paperColor = paper;
+        }
+    }
 
     return true;
 }
@@ -279,32 +451,134 @@ void NoteWidget::setTextFont(QFont &font)
     setTabWidth(tabWidth);
 }
 
-void NoteWidget::setCurrentFont(QFont& font)
+void NoteWidget::setPenColor(const QColor& color)
 {
-    m_textEdit->setCurrentFont(font);
+    if (!color.isValid())
+    {
+        return;
+    }
+
+    m_penColor = color;
+
+    QTextCharFormat fmt;
+    fmt.setForeground(color);
+    applyCharFormatToWholeNote(fmt);
+
+    updateColorButton(m_penBtn, color, false);
 }
 
-void NoteWidget::setFontColor(QColor &color)
+void NoteWidget::setPaperColor(const QColor& color)
 {
-    m_textEdit->setTextColor(color);
-}
+    if (!color.isValid())
+    {
+        return;
+    }
 
-void NoteWidget::setBgColor(QPalette &palette)
-{
+    m_paperColor = color;
+
+    QPalette palette = m_textEdit->palette();
+    palette.setColor(QPalette::Base, color);
     m_textEdit->setPalette(palette);
 
+    writePaperToHtml(color);
+    updateColorButton(m_paperBtn, color, true);
+
+    m_textChanged = true;
+}
+
+void NoteWidget::writePaperToHtml(const QColor& color)
+{
     QString fileContent = m_textEdit->toHtml();
 
     QDomDocument doc;
     doc.setContent(fileContent.toUtf8());
 
     QDomNodeList bodyNodeList = doc.elementsByTagName("body");
-    QDomNode bodyNode = bodyNodeList.at(0);
-    QDomElement bodyEle = bodyNode.toElement();
-    QString bgColor = m_textEdit->palette().color(QPalette::Base).name();
-    bodyEle.setAttribute("bgcolor",bgColor);
+    if (bodyNodeList.isEmpty())
+    {
+        return;
+    }
+
+    QDomElement bodyEle = bodyNodeList.at(0).toElement();
+    bodyEle.setAttribute("bgcolor", color.name());
 
     m_textEdit->setHtml(doc.toString(0));
+}
+
+void NoteWidget::syncToolbar()
+{
+    m_textEdit->moveCursor(QTextCursor::Start);
+    QFont f = m_textEdit->currentFont();
+
+    m_fontCombo->blockSignals(true);
+    m_sizeSpin->blockSignals(true);
+    m_fontCombo->setCurrentFont(f);
+    int pt = f.pointSize();
+    if (pt <= 0)
+    {
+        pt = QFontInfo(f).pointSize();
+    }
+    m_sizeSpin->setValue(pt);
+    m_fontCombo->blockSignals(false);
+    m_sizeSpin->blockSignals(false);
+
+    m_boldBtn->blockSignals(true);
+    m_boldBtn->setChecked(f.bold());
+    m_boldBtn->blockSignals(false);
+
+    QColor pen = m_textEdit->textColor();
+    if (pen.isValid())
+    {
+        m_penColor = pen;
+    }
+    QColor paper = m_textEdit->palette().color(QPalette::Base);
+    if (paper.isValid())
+    {
+        m_paperColor = paper;
+    }
+    updateColorButton(m_penBtn, m_penColor, false);
+    updateColorButton(m_paperBtn, m_paperColor, true);
+}
+
+void NoteWidget::updateColorButton(QToolButton* button, const QColor& color, bool isBackground)
+{
+    const int size = 16;
+    QPixmap pix(size, size);
+    pix.fill(Qt::transparent);
+
+    QPainter p(&pix);
+    p.setRenderHint(QPainter::Antialiasing, true);
+    p.setRenderHint(QPainter::TextAntialiasing, true);
+
+    const QColor swatch = color.isValid() ? color : QColor(Qt::white);
+
+    QFont f = button->font();
+    f.setPixelSize(11);
+    f.setBold(true);
+    p.setFont(f);
+
+    if (isBackground)
+    {
+        // 背景色：实心色块上压一个对比色的“A”，色块颜色实时反映当前背景色。
+        const QRectF block(0.5, 0.5, size - 1, size - 1);
+        p.fillRect(block, swatch);
+        p.setPen(QColor(180, 180, 180));
+        p.drawRect(block);
+        // 依据色块亮度选黑/白字，保证“A”始终可读。
+        const int lum = (swatch.red() * 299 + swatch.green() * 587 + swatch.blue() * 114) / 1000;
+        p.setPen(lum > 128 ? QColor(Qt::black) : QColor(Qt::white));
+        p.drawText(block, Qt::AlignCenter, QStringLiteral("A"));
+    }
+    else
+    {
+        // 文字色：常规色“A” + 底部一条反映当前文字颜色的粗下划线。
+        p.setPen(button->palette().color(QPalette::ButtonText));
+        p.drawText(QRectF(0, 0, size, size - 4), Qt::AlignCenter, QStringLiteral("A"));
+        p.fillRect(QRectF(2, size - 3, size - 4, 3), swatch);
+    }
+
+    p.end();
+    button->setIcon(QIcon(pix));
 }
 
 void NoteWidget::setTabWidth(int width)
