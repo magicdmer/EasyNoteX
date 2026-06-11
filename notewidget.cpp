@@ -1,4 +1,4 @@
-#include "notewidget.h"
+﻿#include "notewidget.h"
 #include "ui_notewidget.h"
 #include "helpfunc.h"
 #include <QFile>
@@ -22,6 +22,23 @@
 #if defined(_MSC_VER) && (_MSC_VER >= 1600)
 # pragma execution_character_set("utf-8")
 #endif
+
+QUrl NoteWidget::originalImageResourceUrl(const QString &name) const
+{
+    QUrl url(name);
+    url.setFragment(QStringLiteral("cutex-original"));
+    return url;
+}
+
+QImage NoteWidget::imageResource(QTextDocument *document, const QString &name) const
+{
+    QImage image = document->resource(QTextDocument::ImageResource, originalImageResourceUrl(name)).value<QImage>();
+
+    if (image.isNull())
+        image = document->resource(QTextDocument::ImageResource, QUrl(name)).value<QImage>();
+
+    return image;
+}
 
 NoteWidget::NoteWidget(QWidget *parent) :
     QWidget(parent),
@@ -342,8 +359,7 @@ bool NoteWidget::save()
         QDomNode node = imgNodeList.at(i);
         QDomElement imgEle = node.toElement();
         QString imgUrl = imgEle.attribute("src");
-        QImage image = m_textEdit->document()->
-                resource(QTextDocument::ImageResource,imgUrl).value<QImage>();
+        QImage image = imageResource(m_textEdit->document(), imgUrl);
 
         QByteArray array;
         QBuffer buffer(&array);

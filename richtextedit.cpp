@@ -7,6 +7,23 @@
 # pragma execution_character_set("utf-8")
 #endif
 
+QUrl RichTextEdit::originalImageResourceUrl(const QString &name) const
+{
+    QUrl url(name);
+    url.setFragment(QStringLiteral("cutex-original"));
+    return url;
+}
+
+QImage RichTextEdit::imageResource(QTextDocument *document, const QString &name) const
+{
+    QImage image = document->resource(QTextDocument::ImageResource, originalImageResourceUrl(name)).value<QImage>();
+
+    if (image.isNull())
+        image = document->resource(QTextDocument::ImageResource, QUrl(name)).value<QImage>();
+
+    return image;
+}
+
 RichTextEdit::RichTextEdit(QWidget *parent):QxTextEdit(parent)
 {
     m_menu = new QMenu(this);
@@ -59,7 +76,7 @@ void RichTextEdit::sltCopyImage()
     if (!cursor.hasSelection() && cursor.charFormat().isImageFormat()) {
         QTextImageFormat fmt = cursor.charFormat().toImageFormat();
 
-        QImage image = document()->resource(QTextDocument::ImageResource, fmt.name()).value<QImage>();
+        QImage image = imageResource(document(), fmt.name());
 
         QClipboard* clip = QApplication::clipboard();
         clip->setImage(image);
@@ -72,7 +89,7 @@ void RichTextEdit::sltSaveImage()
     if (!cursor.hasSelection() && cursor.charFormat().isImageFormat()) {
         QTextImageFormat fmt = cursor.charFormat().toImageFormat();
 
-        QImage image = document()->resource(QTextDocument::ImageResource, fmt.name()).value<QImage>();
+        QImage image = imageResource(document(), fmt.name());
 
         QString filePath = QFileDialog::getSaveFileName(this, tr("图片另存为"), tr("图片"), tr("Image (*.png)"));
         if (filePath.isEmpty())

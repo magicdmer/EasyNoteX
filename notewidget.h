@@ -1,11 +1,13 @@
-#ifndef NOTEWIDGET_H
+﻿#ifndef NOTEWIDGET_H
 #define NOTEWIDGET_H
 
 #include <QWidget>
 #include <QFont>
 #include <QColor>
+#include <QImage>
 #include <QTextDocument>
 #include <QTextCharFormat>
+#include <QUrl>
 #include "richtextedit.h"
 #include <QTimer>
 
@@ -62,6 +64,8 @@ private:
     void writePaperToHtml(const QColor& color);
     void syncToolbar();
     void updateColorButton(QToolButton* button, const QColor& color, bool isBackground);
+    QUrl originalImageResourceUrl(const QString& name) const;
+    QImage imageResource(QTextDocument* document, const QString& name) const;
 
     Ui::NoteWidget *ui;
     QString m_filePath;

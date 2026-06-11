@@ -104,9 +104,13 @@ private:
     bool m_canRedo;
     int m_tabSpaces;
     QxMouseGripBand *m_gripBand;
+    QAction* m_action_copy;
+    QAction* m_action_save;
+    QMenu* m_menu;
 
 private:
     void insertImage(const QImage &image);
+    QUrl originalImageResourceUrl(const QString &name) const;
 
 private slots:
     void setUndoEnabled(bool enabled);
@@ -116,6 +120,7 @@ private slots:
 
 signals:
     void linkActivated(const QString &url);
+    void imageRightClicked();
 };
 
 } // namespace
