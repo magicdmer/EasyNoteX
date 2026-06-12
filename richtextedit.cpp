@@ -2,6 +2,9 @@
 #include <QApplication>
 #include <QClipboard>
 #include <QEvent>
+#include <QTextBlock>
+#include <QTextFragment>
+#include <QTextImageFormat>
 
 #if defined(_MSC_VER) && (_MSC_VER >= 1600)
 # pragma execution_character_set("utf-8")
@@ -53,6 +56,71 @@ void RichTextEdit::flattenInactivePalette()
     }
     setPalette(p);
     viewport()->setPalette(p);
+    viewport()->update();
+}
+
+void RichTextEdit::refreshImageResources()
+{
+    QTextDocument* doc = document();
+
+    for (QTextBlock block = doc->begin(); block.isValid(); block = block.next())
+    {
+        for (QTextBlock::iterator it = block.begin(); !it.atEnd(); ++it)
+        {
+            QTextFragment fragment = it.fragment();
+            if (!fragment.isValid() || !fragment.charFormat().isImageFormat())
+            {
+                continue;
+            }
+
+            QTextImageFormat fmt = fragment.charFormat().toImageFormat();
+            QString name = fmt.name();
+            if (name.isEmpty())
+            {
+                continue;
+            }
+
+            QUrl imageUrl(name);
+            QUrl originalUrl = originalImageResourceUrl(name);
+            QImage image = doc->resource(QTextDocument::ImageResource, originalUrl).value<QImage>();
+
+            if (image.isNull())
+            {
+                image = doc->resource(QTextDocument::ImageResource, imageUrl).value<QImage>();
+                if (!image.isNull())
+                {
+                    doc->addResource(QTextDocument::ImageResource, originalUrl, image);
+                }
+            }
+
+            if (image.isNull())
+            {
+                continue;
+            }
+
+            double width = fmt.width();
+            double height = fmt.height();
+            if (width <= 0.0)
+            {
+                width = image.width();
+            }
+            if (height <= 0.0)
+            {
+                height = image.height();
+            }
+
+            QSize targetSize(qMax(1, qRound(width)), qMax(1, qRound(height)));
+            QImage displayImage = image;
+            if (targetSize != image.size())
+            {
+                displayImage = image.scaled(targetSize, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+            }
+
+            doc->addResource(QTextDocument::ImageResource, imageUrl, displayImage);
+        }
+    }
+
+    doc->markContentsDirty(0, doc->characterCount());
     viewport()->update();
 }
 

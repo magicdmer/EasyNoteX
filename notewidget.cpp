@@ -316,6 +316,7 @@ bool NoteWidget::load()
 
     QString content = doc.toString(0);
     m_textEdit->setHtml(content);
+    m_textEdit->refreshImageResources();
 
     // 还原该便签保存的纸色（body bgcolor）到编辑器调色板。
     QDomNodeList bodyNodeList = doc.elementsByTagName("body");
@@ -519,6 +520,7 @@ void NoteWidget::writePaperToHtml(const QColor& color)
     bodyEle.setAttribute("bgcolor", color.name());
 
     m_textEdit->setHtml(doc.toString(0));
+    m_textEdit->refreshImageResources();
 }
 
 void NoteWidget::syncToolbar()

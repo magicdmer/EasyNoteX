@@ -13,6 +13,7 @@ class RichTextEdit : public QxTextEdit
 public:
     RichTextEdit(QWidget* parent = nullptr);
     void dealBackTab();
+    void refreshImageResources();
 
 public slots:
     void sltImageRightClicked();
