@@ -13,6 +13,7 @@
 #include <QSpinBox>
 #include <QToolButton>
 #include <QColorDialog>
+#include <QFrame>
 #include <QFontInfo>
 #include <QIcon>
 #include <QPixmap>
@@ -120,8 +121,8 @@ void NoteWidget::buildToolbar()
 {
     QWidget* bar = new QWidget(this);
     QHBoxLayout* h = new QHBoxLayout(bar);
-    h->setContentsMargins(2, 2, 2, 2);
-    h->setSpacing(4);
+    h->setContentsMargins(4, 4, 4, 4);
+    h->setSpacing(6);
 
     m_fontCombo = new QFontComboBox(bar);
     m_fontCombo->setMaximumWidth(150);
@@ -161,6 +162,10 @@ void NoteWidget::buildToolbar()
     h->addWidget(m_penBtn);
     h->addWidget(m_paperBtn);
     h->addStretch(1);
+
+    m_textEdit->setFrameShape(QFrame::NoFrame);
+    // 只保留一个舒服的正文内边距，不破坏扁平感
+    m_textEdit->document()->setDocumentMargin(12);
 
     ui->verticalLayout->addWidget(bar);
     ui->verticalLayout->addWidget(m_textEdit);

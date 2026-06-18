@@ -11,6 +11,9 @@
 #include <QTreeWidgetItem>
 #include "finddialog.h"
 #include <QSystemTrayIcon>
+#include <QLabel>
+#include <QMovie>
+#include <QTimer>
 #include "qxtglobalshortcut.h"
 #include "settabledialog.h"
 
@@ -142,6 +145,8 @@ public slots:
     void sltListActionGroupMove();
     void sltNoteDropped(QTreeWidgetItem* noteItem, const QString& targetGroup);
     void sltActionInsertTable();
+    void sltSearchTextChanged(const QString &text);
+    void sltStartFiltering();
 
 public:
     bool find(QString& text,QTextDocument::FindFlags flags);
@@ -166,6 +171,10 @@ public:
     QTreeWidgetItem* addGroupItem(const QString& groupName);
 
 private:
+	NoteWidget *findOpenNoteWidget(const QString& groupName, const QString& noteName) const;
+	QString readNotePlainText(const QString& groupName, const QString& noteName) const;
+	bool noteMatchesSearch(const QString& groupName, const QString& noteName, const QString& text) const;
+
     Ui::MainWindow *ui;
     QVector<NoteWidget*> m_vecNoteWidget;
     QSettings* m_setting;
@@ -205,5 +214,10 @@ private:
     SetTableDialog* m_tableDlg;
     SortType m_sort_type;
     bool m_isUos;
+    
+    // 搜索相关
+    QLabel* m_loadingLabel;
+    QMovie* m_loadingMovie;
+    QTimer* m_filterTimer;
 };
 #endif // MAINWINDOW_H

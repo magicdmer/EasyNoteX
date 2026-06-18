@@ -33,6 +33,7 @@ public:
 
 public:
     QString group() const { return m_group; }
+	QString plainText() const { return m_textEdit ? m_textEdit->toPlainText() : QString(); }
     void setGroup(const QString& group) { m_group = group; }
     bool setFile(QString& fileName);
     bool rename(QString& newName);

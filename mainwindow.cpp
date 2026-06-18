@@ -19,6 +19,7 @@
 #include <QScreen>
 #include <QApplication>
 #include <QStyle>
+#include <QTextDocument>
 
 #if defined(_MSC_VER) && (_MSC_VER >= 1600)
 # pragma execution_character_set("utf-8")
@@ -269,6 +270,42 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->treeWidgetFile,SIGNAL(itemDoubleClicked(QTreeWidgetItem *, int)),this,SLOT(sltTreeItemDoubleClicked(QTreeWidgetItem *, int)));
     connect(ui->comboBox,SIGNAL(currentIndexChanged(const QString&)),
             this,SLOT(sltCurrentIndexChanged(const QString&)));
+            
+    // 初始化搜索框动画
+    m_loadingLabel = new QLabel(ui->lineEditSearch);
+    m_loadingMovie = new QMovie(":/images/loading.gif");
+    m_loadingMovie->setScaledSize(QSize(16, 16));
+    m_loadingLabel->setMovie(m_loadingMovie);
+    m_loadingLabel->setFixedSize(16, 16);
+    m_loadingLabel->hide();
+
+    // 布局动画到搜索框右侧
+    QHBoxLayout* searchLayout = new QHBoxLayout(ui->lineEditSearch);
+    searchLayout->addStretch();
+    searchLayout->addWidget(m_loadingLabel);
+    searchLayout->setContentsMargins(0, 0, 5, 0);
+    ui->lineEditSearch->setTextMargins(0, 0, 25, 0); // 为动画预留空间
+
+    // 移除默认的底部高亮边框，使其更加纯粹扁平
+    ui->lineEditSearch->setStyleSheet(
+        "QLineEdit {"
+        "  border: 1px solid #E5E5E5;"
+        "  border-radius: 2px;"
+        "  padding: 3px;"
+        "  background: white;"
+        "}"
+        "QLineEdit:focus {"
+        "  border: 1px solid #CCCCCC;"
+        "}"
+    );
+
+    // 初始化防抖定时器
+    m_filterTimer = new QTimer(this);
+    m_filterTimer->setSingleShot(true);
+
+    // 连接搜索相关信号槽
+    connect(ui->lineEditSearch, &QLineEdit::textChanged, this, &MainWindow::sltSearchTextChanged);
+    connect(m_filterTimer, &QTimer::timeout, this, &MainWindow::sltStartFiltering);
 }
 
 MainWindow::~MainWindow()
@@ -304,6 +341,44 @@ static bool noteLessThan(const QFileInfo& a, const QFileInfo& b, SortType type)
 QString MainWindow::tabKey(const QString& groupName, const QString& noteName)
 {
     return groupName.isEmpty() ? noteName : (groupName + QLatin1Char('/') + noteName);
+}
+
+NoteWidget *MainWindow::findOpenNoteWidget(const QString& groupName, const QString& noteName) const
+{
+	return ui->tabWidgetNote->findChild<NoteWidget*>(tabKey(groupName, noteName));
+}
+
+QString MainWindow::readNotePlainText(const QString& groupName, const QString& noteName) const
+{
+	NoteWidget* noteWidget = findOpenNoteWidget(groupName, noteName);
+	if (noteWidget)
+	{
+		return noteWidget->plainText();
+	}
+
+	QFile file(noteFilePath(m_notebook, groupName, noteName));
+	if (!file.open(QIODevice::ReadOnly))
+	{
+		return QString();
+	}
+
+	QString html = QString::fromUtf8(file.readAll());
+	file.close();
+
+	QTextDocument document;
+	document.setHtml(html);
+	return document.toPlainText();
+}
+
+bool MainWindow::noteMatchesSearch(const QString& groupName, const QString& noteName, const QString& text) const
+{
+	if (noteName.contains(text, Qt::CaseInsensitive))
+	{
+		return true;
+	}
+
+	QString plainText = readNotePlainText(groupName, noteName);
+	return plainText.contains(text, Qt::CaseInsensitive);
 }
 
 QTreeWidgetItem* MainWindow::findGroupItem(const QString& groupName) const
@@ -368,7 +443,7 @@ QTreeWidgetItem* MainWindow::addGroupItem(const QString& groupName)
     QTreeWidgetItem* item = new QTreeWidgetItem();
     item->setText(0, groupName);
     item->setData(0, ITEM_KIND_ROLE, ITEM_GROUP);
-    item->setIcon(0, stableStandardIcon(QStyle::SP_DirIcon));
+    item->setIcon(0, QIcon(":/images/group.svg"));
     item->setChildIndicatorPolicy(QTreeWidgetItem::ShowIndicator);
 
     int insertAt = 0;
@@ -392,7 +467,7 @@ QTreeWidgetItem* MainWindow::addNoteItem(const QString& groupName, const QString
     item->setData(0, ITEM_KIND_ROLE, ITEM_NOTE);
     item->setData(0, FILE_CREATE_TIME, createTime);
     item->setData(0, FILE_MODIFY_TIME, modifyTime);
-    item->setIcon(0, fileIcon(noteFilePath(m_notebook, groupName, noteName)));
+    item->setIcon(0, QIcon(":/images/note.svg"));
     if (groupName.isEmpty())
     {
         ui->treeWidgetFile->addTopLevelItem(item);
@@ -740,6 +815,12 @@ void MainWindow::newTab(const QString& groupName)
                                                 QDateTime::currentDateTime().toTime_t());
             ui->treeWidgetFile->setCurrentItem(item);
 
+            // 如果当前有搜索过滤，触发重新过滤以保持列表正确
+            if (!ui->lineEditSearch->text().isEmpty())
+            {
+                sltStartFiltering();
+            }
+
             break;
         }
     }
@@ -773,6 +854,12 @@ void MainWindow::renameTab(int tabIndex, QString& newName)
     ui->tabWidgetNote->setTabText(tabIndex,validName);
     QTreeWidgetItem* item = findNoteItem(group, oldName);
     if (item) item->setText(0, validName);
+    
+    // 如果当前有搜索过滤，触发重新过滤以保持列表正确
+    if (!ui->lineEditSearch->text().isEmpty())
+    {
+        sltStartFiltering();
+    }
 }
 
 bool MainWindow::find(QString &text,QTextDocument::FindFlags flags)
@@ -791,6 +878,84 @@ bool MainWindow::find(QString &text,QTextDocument::FindFlags flags)
 void MainWindow::sortFileList()
 {
     initNoteBook();
+}
+
+void MainWindow::sltSearchTextChanged(const QString &text)
+{
+    Q_UNUSED(text);
+    // 重置定时器，防抖处理
+    m_filterTimer->stop();
+    
+    // 显示等待动画
+    m_loadingLabel->show();
+    m_loadingMovie->start();
+    
+    // 开始防抖计时，300ms后执行真正的过滤
+    m_filterTimer->start(300);
+}
+
+void MainWindow::sltStartFiltering()
+{
+	QString text = ui->lineEditSearch->text().trimmed();
+
+	if (text.isEmpty())
+	{
+		// 如果搜索框为空，显示所有节点
+		for (int i = 0; i < ui->treeWidgetFile->topLevelItemCount(); ++i)
+		{
+			QTreeWidgetItem* topItem = ui->treeWidgetFile->topLevelItem(i);
+			topItem->setHidden(false);
+			for (int j = 0; j < topItem->childCount(); ++j)
+			{
+				topItem->child(j)->setHidden(false);
+			}
+		}
+	}
+	else
+	{
+		// 遍历并隐藏不匹配的节点，支持“文件名 + 正文纯文本”搜索
+		for (int i = 0; i < ui->treeWidgetFile->topLevelItemCount(); ++i)
+		{
+			QTreeWidgetItem* topItem = ui->treeWidgetFile->topLevelItem(i);
+			int itemKind = topItem->data(0, ITEM_KIND_ROLE).toInt();
+
+			if (itemKind == ITEM_NOTE)
+			{
+				bool noteMatch = noteMatchesSearch(QString(), topItem->text(0), text);
+				topItem->setHidden(!noteMatch);
+				continue;
+			}
+
+			bool groupMatch = topItem->text(0).contains(text, Qt::CaseInsensitive);
+			bool hasChildMatch = false;
+			QString groupName = topItem->text(0);
+
+			for (int j = 0; j < topItem->childCount(); ++j)
+			{
+				QTreeWidgetItem* childItem = topItem->child(j);
+				bool childMatch = noteMatchesSearch(groupName, childItem->text(0), text);
+
+				childItem->setHidden(!childMatch && !groupMatch);
+				if (childMatch)
+				{
+					hasChildMatch = true;
+				}
+			}
+
+			topItem->setHidden(!groupMatch && !hasChildMatch);
+			if (hasChildMatch || groupMatch)
+			{
+				topItem->setExpanded(true);
+			}
+		}
+	}
+
+	// 过滤完成，稍微延迟一点关闭动画，确保用户能看到它闪了一下
+	QTimer::singleShot(200, this, [this]()
+	{
+		m_loadingMovie->stop();
+		m_loadingLabel->hide();
+	});
 }
 
 void MainWindow::sltTreeItemDoubleClicked(QTreeWidgetItem *item, int column)
@@ -1197,6 +1362,7 @@ void MainWindow::sltCurrentIndexChanged(const QString &text)
 {
     save();
     m_notebook = text;
+    ui->lineEditSearch->clear(); // 切换记事本时清空搜索框
     closeAllTabs();
     initNoteBook();
     refreshMenu();
@@ -1358,6 +1524,12 @@ void MainWindow::sltGroupActionNew()
     QDir().mkpath(gp);
     QTreeWidgetItem* item = addGroupItem(name);
     ui->treeWidgetFile->setCurrentItem(item);
+    
+    // 如果当前有搜索过滤，触发重新过滤以保持列表正确
+    if (!ui->lineEditSearch->text().isEmpty())
+    {
+        sltStartFiltering();
+    }
 }
 
 void MainWindow::sltGroupActionRename()
@@ -1407,6 +1579,12 @@ void MainWindow::sltGroupActionRename()
     }
 
     item->setText(0, newName);
+    
+    // 如果当前有搜索过滤，触发重新过滤以保持列表正确
+    if (!ui->lineEditSearch->text().isEmpty())
+    {
+        sltStartFiltering();
+    }
 }
 
 void MainWindow::sltGroupActionDelete()
