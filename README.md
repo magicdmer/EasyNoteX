@@ -5,7 +5,8 @@
 支持记事本分类、标签页编辑、即时保存，托盘驻留和全局快捷键。
 
 #### 预览
-<img width="1481" height="920" alt="image" src="https://github.com/user-attachments/assets/f89d7a5c-3003-45db-8f35-abce354e2f82" />
+<img width="1361" height="929" alt="EasyNoteX" src="https://github.com/user-attachments/assets/cd51144b-dc97-445e-b358-63dece19bb9c" />
+
 
 #### 使用说明
 1. 双击标签空白处新建标签页
