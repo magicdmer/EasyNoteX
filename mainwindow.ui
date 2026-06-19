@@ -65,14 +65,23 @@
         </item>
         <item>
          <widget class="FileTreeWidget" name="treeWidgetFile">
+          <property name="focusPolicy">
+           <enum>Qt::TabFocus</enum>
+          </property>
           <property name="contextMenuPolicy">
            <enum>Qt::CustomContextMenu</enum>
           </property>
-          <property name="headerHidden">
-           <bool>true</bool>
+          <property name="frameShape">
+           <enum>QFrame::NoFrame</enum>
+          </property>
+          <property name="frameShadow">
+           <enum>QFrame::Plain</enum>
           </property>
           <property name="indentation">
            <number>14</number>
+          </property>
+          <property name="headerHidden">
+           <bool>true</bool>
           </property>
           <column>
            <property name="text">
@@ -199,6 +208,12 @@
    <header>filetreewidget.h</header>
   </customwidget>
  </customwidgets>
+ <tabstops>
+  <tabstop>comboBox</tabstop>
+  <tabstop>lineEditSearch</tabstop>
+  <tabstop>treeWidgetFile</tabstop>
+  <tabstop>tabWidgetNote</tabstop>
+ </tabstops>
  <resources/>
  <connections/>
 </ui>

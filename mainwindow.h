@@ -171,6 +171,7 @@ public:
     QTreeWidgetItem* addGroupItem(const QString& groupName);
 
 private:
+    void applyEditorShortcuts();
     void connectNoteWidgetSignals(NoteWidget *noteWidget);
 	NoteWidget *findOpenNoteWidget(const QString& groupName, const QString& noteName) const;
 	QString readNotePlainText(const QString& groupName, const QString& noteName) const;
@@ -187,6 +188,9 @@ private:
     QxtGlobalShortcut* m_shortcut;
     QAction* m_action_exit;
     QString m_hotkey;
+    QString m_tableShortcut;
+    QString m_checklistShortcut;
+    QString m_codeBlockShortcut;
     bool m_can_exit;
     QAction* m_action_new;
     QAction* m_action_rename;

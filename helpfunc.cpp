@@ -261,6 +261,26 @@ bool textHasChecklistPrefix(const QString &text)
     return ch == checklistUncheckedChar() || ch == checklistCheckedChar();
 }
 
+QString defaultGlobalHotkey()
+{
+    return QStringLiteral("Alt+O");
+}
+
+QString defaultTableShortcut()
+{
+    return QStringLiteral("Ctrl+I");
+}
+
+QString defaultChecklistShortcut()
+{
+    return QStringLiteral("Ctrl+[");
+}
+
+QString defaultCodeBlockShortcut()
+{
+    return QStringLiteral("Ctrl+>");
+}
+
 QString codeBlockFontFamily()
 {
     return QStringLiteral("Consolas");

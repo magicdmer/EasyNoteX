@@ -37,19 +37,25 @@ SetDialog::SetDialog(QWidget *parent) :
     int tabWidth = m_setting->value("tab_width", 4).toInt();
     int sort_type = m_setting->value("sort_type", 0).toInt();
 
-    QString shortcut = m_setting->value("hotkey").toString();
+    QString shortcut = m_setting->value("hotkey", defaultGlobalHotkey()).toString();
+    QString tableShortcut = m_setting->value("shortcut_table", defaultTableShortcut()).toString();
+    QString checklistShortcut = m_setting->value("shortcut_checklist", defaultChecklistShortcut()).toString();
+    QString codeBlockShortcut = m_setting->value("shortcut_codeblock", defaultCodeBlockShortcut()).toString();
 
     ui->checkBoxCloseToTray->setChecked(closeToTray);
     ui->checkBoxMiniToTray->setChecked(minToTray);
     ui->checkBoxEscToTray->setChecked(escToTray);
     ui->lineEditTabWidth->setText(QString::number(tabWidth));
     ui->keySequenceEdit->setKeySequence(QKeySequence(shortcut));
+    ui->keySequenceEditTable->setKeySequence(QKeySequence(tableShortcut));
+    ui->keySequenceEditChecklist->setKeySequence(QKeySequence(checklistShortcut));
+    ui->keySequenceEditCodeBlock->setKeySequence(QKeySequence(codeBlockShortcut));
     const bool uos = isUos();
     ui->keySequenceEdit->setVisible(!uos);
     ui->labelShortcutHint->setVisible(uos);
     if (uos)
     {
-        ui->groupBox_2->setTitle(tr("显示/隐藏主窗口"));
+        ui->groupBox_2->setTitle(tr("全局热键：显示/隐藏主窗口"));
         ui->labelShortcutHint->setText(tr("uos 下请在控制中心的快捷键设置中手动设置 EasyNoteX 的启动快捷键。"));
     }
 
@@ -144,8 +150,11 @@ void SetDialog::sltButtonOkClicked()
     m_minToTray = ui->checkBoxMiniToTray->isChecked();
     m_escToTray = ui->checkBoxEscToTray->isChecked();
     m_tabWidth = ui->lineEditTabWidth->text().toInt();
-    m_shortcut = ui->keySequenceEdit->isVisible() ? ui->keySequenceEdit->keySequence().toString()
-                                                  : m_setting->value("hotkey").toString();
+    m_globalShortcut = ui->keySequenceEdit->isVisible() ? ui->keySequenceEdit->keySequence().toString()
+                                                        : m_setting->value("hotkey", defaultGlobalHotkey()).toString();
+    m_tableShortcut = ui->keySequenceEditTable->keySequence().toString();
+    m_checklistShortcut = ui->keySequenceEditChecklist->keySequence().toString();
+    m_codeBlockShortcut = ui->keySequenceEditCodeBlock->keySequence().toString();
     m_sort_type = ui->comboBox->currentIndex();
 
     m_setting->setValue("close_to_tray",m_closeToTray);
@@ -153,6 +162,9 @@ void SetDialog::sltButtonOkClicked()
     m_setting->setValue("tab_width",m_tabWidth);
     m_setting->setValue("esc_to_tray",m_escToTray);
     m_setting->setValue("sort_type", m_sort_type);
+    m_setting->setValue("shortcut_table", m_tableShortcut);
+    m_setting->setValue("shortcut_checklist", m_checklistShortcut);
+    m_setting->setValue("shortcut_codeblock", m_codeBlockShortcut);
 
     m_setting->setValue("/Editor/font", m_defaultFont.toString());
     m_setting->setValue("/Editor/pen_color", m_defaultPen.isValid() ? m_defaultPen.name() : QString());

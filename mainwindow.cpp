@@ -62,7 +62,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->actionFind,SIGNAL(triggered()),this,SLOT(sltActionFind()));
     ui->actionHelp->setShortcut(tr("F1"));
     connect(ui->actionHelp,SIGNAL(triggered()),this,SLOT(sltActionHelp()));
-    ui->actionInsertTable->setShortcut(tr("Ctrl+I"));
+    ui->actionInsertTable->setShortcut(QKeySequence());
     connect(ui->actionInsertTable, SIGNAL(triggered()), this, SLOT(sltActionInsertTable()));
 
     m_action_exit = new QAction(tr("退出"),this);
@@ -175,14 +175,20 @@ MainWindow::MainWindow(QWidget *parent)
     {
         m_setting = new QSettings(settingsPath,QSettings::IniFormat,this);
         m_setting->setIniCodec("UTF-8");
-        m_setting->setValue("hotkey","Alt+O");
+        m_setting->setValue("hotkey", defaultGlobalHotkey());
+        m_setting->setValue("shortcut_table", defaultTableShortcut());
+        m_setting->setValue("shortcut_checklist", defaultChecklistShortcut());
+        m_setting->setValue("shortcut_codeblock", defaultCodeBlockShortcut());
         m_setting->setValue("last_open_notebook",tr("我的记事本"));
         QFont font("微软雅黑",14);
         m_setting->setValue("/Editor/font",font.toString());
         m_editor_font = font;
         m_default_pen = QColor(Qt::black);
         m_default_paper = QColor(Qt::white);
-        m_hotkey = "Alt+O";
+        m_hotkey = defaultGlobalHotkey();
+        m_tableShortcut = defaultTableShortcut();
+        m_checklistShortcut = defaultChecklistShortcut();
+        m_codeBlockShortcut = defaultCodeBlockShortcut();
         m_sort_type = SORT_BY_NAME;
     }
     else
@@ -212,7 +218,10 @@ MainWindow::MainWindow(QWidget *parent)
             m_default_paper = QColor(Qt::white);
         }
 
-        m_hotkey = m_setting->value("hotkey", "Alt+O").toString();
+        m_hotkey = m_setting->value("hotkey", defaultGlobalHotkey()).toString();
+        m_tableShortcut = m_setting->value("shortcut_table", defaultTableShortcut()).toString();
+        m_checklistShortcut = m_setting->value("shortcut_checklist", defaultChecklistShortcut()).toString();
+        m_codeBlockShortcut = m_setting->value("shortcut_codeblock", defaultCodeBlockShortcut()).toString();
         int keep_top = m_setting->value("keep_top").toInt(0);
         if (keep_top)
         {
@@ -647,6 +656,19 @@ void MainWindow::connectNoteWidgetSignals(NoteWidget *noteWidget)
     }
 
     connect(noteWidget, SIGNAL(sigInsertTableRequested()), this, SLOT(sltActionInsertTable()));
+    noteWidget->setEditorShortcuts(m_tableShortcut, m_checklistShortcut, m_codeBlockShortcut);
+}
+
+void MainWindow::applyEditorShortcuts()
+{
+    for (int i = 0; i < ui->tabWidgetNote->count(); i++)
+    {
+        NoteWidget* widget = (NoteWidget*)ui->tabWidgetNote->widget(i);
+        if (widget)
+        {
+            widget->setEditorShortcuts(m_tableShortcut, m_checklistShortcut, m_codeBlockShortcut);
+        }
+    }
 }
 
 void MainWindow::save()
@@ -1107,14 +1129,19 @@ void MainWindow::sltSet()
     SetDialog dlg(this);
     if (dlg.exec() == QDialog::Accepted)
     {
-        if (!m_isUos && dlg.m_shortcut != m_hotkey)
+        if (!m_isUos && dlg.m_globalShortcut != m_hotkey)
         {
-            if (applyGlobalShortcut(dlg.m_shortcut, true))
+            if (applyGlobalShortcut(dlg.m_globalShortcut, true))
             {
-                m_hotkey = dlg.m_shortcut;
+                m_hotkey = dlg.m_globalShortcut;
                 m_setting->setValue("hotkey",m_hotkey);
             }
         }
+
+        m_tableShortcut = dlg.m_tableShortcut;
+        m_checklistShortcut = dlg.m_checklistShortcut;
+        m_codeBlockShortcut = dlg.m_codeBlockShortcut;
+        applyEditorShortcuts();
 
         for (int i = 0; i < ui->tabWidgetNote->count(); i++)
         {

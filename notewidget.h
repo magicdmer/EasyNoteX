@@ -12,6 +12,7 @@
 #include <QTimer>
 
 class QFontComboBox;
+class QShortcut;
 class QSpinBox;
 class QToolButton;
 class QDomNode;
@@ -51,6 +52,7 @@ public:
     bool save();
     void dealBackTab();
     void insertTable(int row, int col, int percent);
+    void setEditorShortcuts(const QString& tableShortcut, const QString& checklistShortcut, const QString& codeBlockShortcut);
 
 signals:
     void sigInsertTableRequested();
@@ -87,6 +89,9 @@ private:
     QTimer* m_typingTimer;
     bool m_textChanged;
     QString m_filterText;
+    QShortcut* m_tableShortcut;
+    QShortcut* m_checklistShortcut;
+    QShortcut* m_codeBlockShortcut;
 
     // 当前便签的整篇样式（贴身工具条）
     QFontComboBox* m_fontCombo;

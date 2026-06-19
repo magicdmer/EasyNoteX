@@ -1,4 +1,4 @@
-#ifndef SETDIALOG_H
+﻿#ifndef SETDIALOG_H
 #define SETDIALOG_H
 
 #include <QDialog>
@@ -31,7 +31,10 @@ public:
     int m_minToTray;
     int m_escToTray;
     int m_tabWidth;
-    QString m_shortcut;
+    QString m_globalShortcut;
+    QString m_tableShortcut;
+    QString m_checklistShortcut;
+    QString m_codeBlockShortcut;
     int m_sort_type;
 
     QFont m_defaultFont;

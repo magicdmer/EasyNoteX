@@ -11,6 +11,7 @@
 #include <QCryptographicHash>
 #include <QHBoxLayout>
 #include <QFontComboBox>
+#include <QShortcut>
 #include <QSpinBox>
 #include <QToolButton>
 #include <QColorDialog>
@@ -148,6 +149,15 @@ NoteWidget::NoteWidget(QWidget *parent) :
     ui->setupUi(this);
     m_textEdit = new RichTextEdit(this);
     buildToolbar();
+    m_tableShortcut = new QShortcut(m_textEdit);
+    m_checklistShortcut = new QShortcut(m_textEdit);
+    m_codeBlockShortcut = new QShortcut(m_textEdit);
+    m_tableShortcut->setContext(Qt::WidgetWithChildrenShortcut);
+    m_checklistShortcut->setContext(Qt::WidgetWithChildrenShortcut);
+    m_codeBlockShortcut->setContext(Qt::WidgetWithChildrenShortcut);
+    connect(m_tableShortcut, SIGNAL(activated()), this, SIGNAL(sigInsertTableRequested()));
+    connect(m_checklistShortcut, SIGNAL(activated()), this, SLOT(sltInsertChecklist()));
+    connect(m_codeBlockShortcut, SIGNAL(activated()), this, SLOT(sltInsertCodeBlock()));
 
     m_textChanged = false;
 
@@ -177,6 +187,15 @@ NoteWidget::NoteWidget(QWidget *parent,QString noteName, QString groupName, QStr
 
     m_textEdit = new RichTextEdit(this);
     buildToolbar();
+    m_tableShortcut = new QShortcut(m_textEdit);
+    m_checklistShortcut = new QShortcut(m_textEdit);
+    m_codeBlockShortcut = new QShortcut(m_textEdit);
+    m_tableShortcut->setContext(Qt::WidgetWithChildrenShortcut);
+    m_checklistShortcut->setContext(Qt::WidgetWithChildrenShortcut);
+    m_codeBlockShortcut->setContext(Qt::WidgetWithChildrenShortcut);
+    connect(m_tableShortcut, SIGNAL(activated()), this, SIGNAL(sigInsertTableRequested()));
+    connect(m_checklistShortcut, SIGNAL(activated()), this, SLOT(sltInsertChecklist()));
+    connect(m_codeBlockShortcut, SIGNAL(activated()), this, SLOT(sltInsertCodeBlock()));
 
     m_noteName = noteName;
     m_group = groupName;
@@ -215,6 +234,22 @@ NoteWidget::~NoteWidget()
     }
 
     delete ui;
+}
+
+void NoteWidget::setEditorShortcuts(const QString& tableShortcut, const QString& checklistShortcut, const QString& codeBlockShortcut)
+{
+    if (m_tableShortcut)
+    {
+        m_tableShortcut->setKey(QKeySequence(tableShortcut));
+    }
+    if (m_checklistShortcut)
+    {
+        m_checklistShortcut->setKey(QKeySequence(checklistShortcut));
+    }
+    if (m_codeBlockShortcut)
+    {
+        m_codeBlockShortcut->setKey(QKeySequence(codeBlockShortcut));
+    }
 }
 
 void NoteWidget::buildToolbar()
