@@ -212,7 +212,7 @@ MainWindow::MainWindow(QWidget *parent)
             m_default_paper = QColor(Qt::white);
         }
 
-        m_hotkey = m_setting->value("hotkey").toString();
+        m_hotkey = m_setting->value("hotkey", "Alt+O").toString();
         int keep_top = m_setting->value("keep_top").toInt(0);
         if (keep_top)
         {
@@ -257,8 +257,8 @@ MainWindow::MainWindow(QWidget *parent)
     m_shortcut = nullptr;
     if (!m_isUos)
     {
-        m_shortcut = new QxtGlobalShortcut(QKeySequence(),this);
-        if (m_shortcut->setShortcut(QKeySequence(m_hotkey)))
+        m_shortcut = new QxtGlobalShortcut(this);
+        if (!m_hotkey.trimmed().isEmpty() && m_shortcut->setShortcut(QKeySequence(m_hotkey)))
         {
             connect(m_shortcut,SIGNAL(activated()),this,SLOT(sltHotKey()));
         }
