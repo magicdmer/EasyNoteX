@@ -14,6 +14,8 @@
 class QFontComboBox;
 class QSpinBox;
 class QToolButton;
+class QDomNode;
+class QIcon;
 
 namespace Ui {
 class NoteWidget;
@@ -56,12 +58,15 @@ public slots:
     void sltFontFamilyChanged(const QFont& font);
     void sltFontSizeChanged(int size);
     void sltBoldToggled(bool bold);
+    void sltInsertChecklist();
     void sltPickPenColor();
     void sltPickPaperColor();
 
 private:
     void buildToolbar();
+    QIcon checklistButtonIcon() const;
     void applyCharFormatToWholeNote(const QTextCharFormat& fmt);
+    void removeRichTextSourceWhitespace(QDomNode node);
     void writePaperToHtml(const QColor& color);
     void syncToolbar();
     void updateColorButton(QToolButton* button, const QColor& color, bool isBackground);
@@ -81,6 +86,7 @@ private:
     QFontComboBox* m_fontCombo;
     QSpinBox* m_sizeSpin;
     QToolButton* m_boldBtn;
+    QToolButton* m_checklistBtn;
     QToolButton* m_penBtn;
     QToolButton* m_paperBtn;
     QColor m_penColor;

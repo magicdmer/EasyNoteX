@@ -1,6 +1,7 @@
 ﻿#include "notewidget.h"
 #include "ui_notewidget.h"
 #include "helpfunc.h"
+#include <QApplication>
 #include <QFile>
 #include <QSettings>
 #include <QDomDocument>
@@ -19,10 +20,56 @@
 #include <QPixmap>
 #include <QPainter>
 #include <QPalette>
+#include <QStringList>
+#include <QTextBlock>
+#include <QVector>
 
 #if defined(_MSC_VER) && (_MSC_VER >= 1600)
 # pragma execution_character_set("utf-8")
 #endif
+
+QIcon NoteWidget::checklistButtonIcon() const
+{
+    QPixmap pix(20, 20);
+    pix.fill(Qt::transparent);
+
+    QPainter painter(&pix);
+    painter.setRenderHint(QPainter::Antialiasing, true);
+    painter.setRenderHint(QPainter::TextAntialiasing, true);
+
+    QFont font(checklistMarkerFontFamily());
+    font.setPointSize(15);
+    painter.setFont(font);
+    painter.setPen(QApplication::palette().color(QPalette::ButtonText));
+    QRect textRect = pix.rect().adjusted(0, -2, 0, -2);
+    painter.drawText(textRect, Qt::AlignCenter, QString(checklistCheckedChar()));
+    painter.end();
+
+    return QIcon(pix);
+}
+
+void NoteWidget::removeRichTextSourceWhitespace(QDomNode node)
+{
+    // Qt 的 DOM 缩进换行会被 QTextEdit 当作 pre-wrap 文本显示，待办项内联 span 会因此重开后分行。
+    QDomNode child = node.firstChild();
+    while (!child.isNull())
+    {
+        QDomNode next = child.nextSibling();
+        if (child.isText())
+        {
+            QString value = child.nodeValue();
+            if (value.contains(QLatin1Char('\n')) && value.trimmed().isEmpty())
+            {
+                node.removeChild(child);
+            }
+        }
+        else
+        {
+            removeRichTextSourceWhitespace(child);
+        }
+        child = next;
+    }
+}
 
 QUrl NoteWidget::originalImageResourceUrl(const QString &name) const
 {
@@ -144,6 +191,13 @@ void NoteWidget::buildToolbar()
     m_boldBtn->setFont(boldFont);
     m_boldBtn->setToolTip(tr("加粗（整篇）"));
 
+    m_checklistBtn = new QToolButton(bar);
+    m_checklistBtn->setFixedSize(30, 26);
+    m_checklistBtn->setToolButtonStyle(Qt::ToolButtonIconOnly);
+    m_checklistBtn->setIcon(checklistButtonIcon());
+    m_checklistBtn->setIconSize(QSize(20, 20));
+    m_checklistBtn->setToolTip(tr("插入待办项"));
+
     m_penBtn = new QToolButton(bar);
     m_penBtn->setFixedSize(26, 26);
     m_penBtn->setToolButtonStyle(Qt::ToolButtonIconOnly);
@@ -161,6 +215,7 @@ void NoteWidget::buildToolbar()
     h->addWidget(m_boldBtn);
     h->addWidget(m_penBtn);
     h->addWidget(m_paperBtn);
+    h->addWidget(m_checklistBtn);
     h->addStretch(1);
 
     m_textEdit->setFrameShape(QFrame::NoFrame);
@@ -173,6 +228,7 @@ void NoteWidget::buildToolbar()
     connect(m_fontCombo, SIGNAL(currentFontChanged(QFont)), this, SLOT(sltFontFamilyChanged(QFont)));
     connect(m_sizeSpin, SIGNAL(valueChanged(int)), this, SLOT(sltFontSizeChanged(int)));
     connect(m_boldBtn, SIGNAL(toggled(bool)), this, SLOT(sltBoldToggled(bool)));
+    connect(m_checklistBtn, SIGNAL(clicked()), this, SLOT(sltInsertChecklist()));
     connect(m_penBtn, SIGNAL(clicked()), this, SLOT(sltPickPenColor()));
     connect(m_paperBtn, SIGNAL(clicked()), this, SLOT(sltPickPaperColor()));
 }
@@ -205,8 +261,16 @@ void NoteWidget::sltTextChanged()
 
 void NoteWidget::sltFontFamilyChanged(const QFont& font)
 {
+    // 同步控件默认字体，避免后续输入仍沿用旧的 document/default format。
+    QFont baseFont = m_textEdit->font();
+    baseFont.setFamily(font.family());
+    m_textEdit->setFont(baseFont);
+    m_textEdit->document()->setDefaultFont(baseFont);
+
     QTextCharFormat fmt;
     fmt.setFontFamily(font.family());
+    // Qt 可能保留旧的 font-family 列表，必须覆盖列表本身，否则正文下拉字体不一定生效。
+    fmt.setFontFamilies(QStringList() << font.family());
     applyCharFormatToWholeNote(fmt);
     m_textEdit->setFocus();
 }
@@ -218,6 +282,12 @@ void NoteWidget::sltFontSizeChanged(int size)
         return;
     }
 
+    // 同步控件默认字体，避免改变整篇字号后新输入仍使用旧字号。
+    QFont baseFont = m_textEdit->font();
+    baseFont.setPointSize(size);
+    m_textEdit->setFont(baseFont);
+    m_textEdit->document()->setDefaultFont(baseFont);
+
     QTextCharFormat fmt;
     fmt.setFontPointSize(size);
     applyCharFormatToWholeNote(fmt);
@@ -225,9 +295,91 @@ void NoteWidget::sltFontSizeChanged(int size)
 
 void NoteWidget::sltBoldToggled(bool bold)
 {
+    // 同步控件默认字体，避免改变整篇粗体后新输入状态不一致。
+    QFont baseFont = m_textEdit->font();
+    baseFont.setBold(bold);
+    m_textEdit->setFont(baseFont);
+    m_textEdit->document()->setDefaultFont(baseFont);
+
     QTextCharFormat fmt;
     fmt.setFontWeight(bold ? QFont::Bold : QFont::Normal);
     applyCharFormatToWholeNote(fmt);
+    m_textEdit->setFocus();
+}
+
+void NoteWidget::sltInsertChecklist()
+{
+    QTextCursor cursor = m_textEdit->textCursor();
+    QTextDocument* doc = m_textEdit->document();
+    const QString prefix = checklistPrefix(false);
+    const int prefixSize = prefix.size();
+    int cursorPos = cursor.position();
+    int cursorAnchor = cursor.anchor();
+
+    int startPos = cursor.selectionStart();
+    int endPos = cursor.selectionEnd();
+    if (cursor.hasSelection() && endPos > startPos)
+    {
+        endPos--;
+    }
+
+    QTextBlock startBlock = doc->findBlock(startPos);
+    QTextBlock endBlock = doc->findBlock(endPos);
+    if (!startBlock.isValid() || !endBlock.isValid())
+    {
+        return;
+    }
+
+    QVector<int> blockPositions;
+    for (QTextBlock block = startBlock; block.isValid(); block = block.next())
+    {
+        blockPositions.append(block.position());
+        if (block == endBlock)
+        {
+            break;
+        }
+    }
+
+    // 反向插入，避免前面的 block 插入前缀后影响后续 block 的原始位置。
+    cursor.beginEditBlock();
+
+    QVector<int> insertedPositions;
+    for (int i = blockPositions.count() - 1; i >= 0; --i)
+    {
+        QTextBlock block = doc->findBlock(blockPositions.at(i));
+        QString text = block.text();
+        if (textHasChecklistPrefix(text))
+        {
+            continue;
+        }
+
+        QTextCursor blockCursor(doc);
+        blockCursor.setPosition(blockPositions.at(i));
+        blockCursor.movePosition(QTextCursor::StartOfBlock);
+        blockCursor.insertText(prefix);
+        insertedPositions.append(blockPositions.at(i));
+    }
+
+    cursor.endEditBlock();
+    m_textEdit->refreshChecklistFormats();
+
+    // 插入前缀后还原原来的光标/选区位置，否则批量插入待办会把选区跳乱。
+    auto adjustedPosition = [&insertedPositions, prefixSize](int oldPos) {
+        int newPos = oldPos;
+        for (int i = 0; i < insertedPositions.count(); ++i)
+        {
+            if (insertedPositions.at(i) <= oldPos)
+            {
+                newPos += prefixSize;
+            }
+        }
+        return newPos;
+    };
+
+    QTextCursor restore(doc);
+    restore.setPosition(adjustedPosition(cursorAnchor));
+    restore.setPosition(adjustedPosition(cursorPos), QTextCursor::KeepAnchor);
+    m_textEdit->setTextCursor(restore);
     m_textEdit->setFocus();
 }
 
@@ -270,6 +422,7 @@ void NoteWidget::applyCharFormatToWholeNote(const QTextCharFormat& fmt)
 
     // 让后续输入也沿用该格式。
     m_textEdit->mergeCurrentCharFormat(fmt);
+    m_textEdit->refreshChecklistFormats();
 
     // 整篇格式变化后强制重排并重绘，否则可能出现“文字消失、需缩放窗口才刷新”的问题。
     QTextDocument* doc = m_textEdit->document();
@@ -319,9 +472,11 @@ bool NoteWidget::load()
         imgEle.setAttribute("src",url);
     }
 
-    QString content = doc.toString(0);
+    removeRichTextSourceWhitespace(doc);
+    QString content = doc.toString(-1);
     m_textEdit->setHtml(content);
     m_textEdit->refreshImageResources();
+    m_textEdit->refreshChecklistFormats();
 
     // 还原该便签保存的纸色（body bgcolor）到编辑器调色板。
     QDomNodeList bodyNodeList = doc.elementsByTagName("body");
@@ -376,7 +531,8 @@ bool NoteWidget::save()
         imgEle.setAttribute("src","data:image/png;base64," + imageBase64);
     }
 
-    QByteArray contentArray = doc.toByteArray(0);
+    removeRichTextSourceWhitespace(doc);
+    QByteArray contentArray = doc.toByteArray(-1);
     file.write(contentArray);
     file.close();
 
@@ -524,14 +680,15 @@ void NoteWidget::writePaperToHtml(const QColor& color)
     QDomElement bodyEle = bodyNodeList.at(0).toElement();
     bodyEle.setAttribute("bgcolor", color.name());
 
-    m_textEdit->setHtml(doc.toString(0));
+    removeRichTextSourceWhitespace(doc);
+    m_textEdit->setHtml(doc.toString(-1));
     m_textEdit->refreshImageResources();
+    m_textEdit->refreshChecklistFormats();
 }
 
 void NoteWidget::syncToolbar()
 {
-    m_textEdit->moveCursor(QTextCursor::Start);
-    QFont f = m_textEdit->currentFont();
+    QFont f = m_textEdit->font();
 
     m_fontCombo->blockSignals(true);
     m_sizeSpin->blockSignals(true);

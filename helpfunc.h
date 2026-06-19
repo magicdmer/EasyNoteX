@@ -1,6 +1,7 @@
 #ifndef HELPFUNC_H
 #define HELPFUNC_H
 
+#include <QChar>
 #include <QIcon>
 #include <QString>
 #include <QStyle>
@@ -19,5 +20,10 @@ QIcon fileIcon(const QString &path);
 void ensureAppDirs();
 bool isUos();
 bool moveToTrash(const QString &path, QString *errorMessage = nullptr);
+QChar checklistUncheckedChar();
+QChar checklistCheckedChar();
+QString checklistPrefix(bool checked);
+QString checklistMarkerFontFamily();
+bool textHasChecklistPrefix(const QString &text);
 
 #endif // HELPFUNC_H

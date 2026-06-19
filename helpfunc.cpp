@@ -20,14 +20,12 @@
 #  endif
 #endif
 
-namespace {
-
-QString normalizedPath(const QString &path)
+static QString normalizedPath(const QString &path)
 {
     return QDir::toNativeSeparators(QDir::cleanPath(path));
 }
 
-QString readOsReleaseValue(const QString& key)
+static QString readOsReleaseValue(const QString& key)
 {
     QFile file(QStringLiteral("/etc/os-release"));
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
@@ -53,8 +51,6 @@ QString readOsReleaseValue(const QString& key)
 
     return QString();
 }
-
-} // namespace
 
 QString notesRoot()
 {
@@ -232,6 +228,37 @@ bool moveToTrash(const QString &path, QString *errorMessage)
     return false;
 #endif
 #endif
+}
+
+QChar checklistUncheckedChar()
+{
+    return QChar(0x2610);
+}
+
+QChar checklistCheckedChar()
+{
+    return QChar(0x2611);
+}
+
+QString checklistPrefix(bool checked)
+{
+    return QString(checked ? checklistCheckedChar() : checklistUncheckedChar()) + QLatin1Char(' ');
+}
+
+QString checklistMarkerFontFamily()
+{
+    return QStringLiteral("Segoe UI Symbol");
+}
+
+bool textHasChecklistPrefix(const QString &text)
+{
+    if (text.isEmpty())
+    {
+        return false;
+    }
+
+    QChar ch = text.at(0);
+    return ch == checklistUncheckedChar() || ch == checklistCheckedChar();
 }
 
 bool isUos()
