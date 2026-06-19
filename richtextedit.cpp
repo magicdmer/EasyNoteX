@@ -8,8 +8,10 @@
 #include <QMouseEvent>
 #include <QStringList>
 #include <QTextBlock>
+#include <QTextFrame>
 #include <QTextFragment>
 #include <QTextImageFormat>
+#include <QTextTable>
 
 #if defined(_MSC_VER) && (_MSC_VER >= 1600)
 # pragma execution_character_set("utf-8")
@@ -206,6 +208,89 @@ void RichTextEdit::applyChecklistInputFormat()
     setCurrentCharFormat(format);
 }
 
+bool RichTextEdit::isCodeBlockTable(const QTextTable *table)
+{
+    if (!table || table->rows() != 1 || table->columns() != 1)
+    {
+        return false;
+    }
+
+    QTextTableFormat format = table->format();
+    QTextLength width = format.width();
+    return width.type() == QTextLength::PercentageLength
+        && qRound(width.rawValue()) == 80
+        && qRound(format.border()) == 1
+        && qRound(format.cellPadding()) == 8
+        && qRound(format.cellSpacing()) == 0
+        && format.background().color() == codeBlockBackgroundColor()
+        && format.borderBrush().color() == codeBlockBorderColor();
+}
+
+QTextCharFormat RichTextEdit::codeBlockTextFormat(const QTextCharFormat &baseFormat)
+{
+    QTextCharFormat format = baseFormat;
+    QFont font = format.font();
+    font.setFamily(codeBlockFontFamily());
+    font.setStyleHint(QFont::Monospace);
+    font.setBold(false);
+    font.setWeight(QFont::Normal);
+    format.setFont(font);
+    format.setFontFamily(codeBlockFontFamily());
+    format.setFontFamilies(QStringList() << codeBlockFontFamily());
+    format.setFontWeight(QFont::Normal);
+    format.setFontStrikeOut(false);
+    return format;
+}
+
+void RichTextEdit::refreshCodeBlockTableFormats(QTextTable *table)
+{
+    if (!isCodeBlockTable(table))
+    {
+        return;
+    }
+
+    for (int row = 0; row < table->rows(); ++row)
+    {
+        for (int col = 0; col < table->columns(); ++col)
+        {
+            QTextTableCell cell = table->cellAt(row, col);
+            QTextCursor contentCursor = cell.firstCursorPosition();
+            QTextCursor endCursor = cell.lastCursorPosition();
+            int startPos = contentCursor.position();
+            int endPos = endCursor.position();
+
+            if (endPos > startPos)
+            {
+                contentCursor.setPosition(startPos);
+                contentCursor.setPosition(endPos, QTextCursor::KeepAnchor);
+                contentCursor.mergeCharFormat(codeBlockTextFormat(contentCursor.charFormat()));
+            }
+
+            for (QTextBlock block = cell.firstCursorPosition().block(); block.isValid(); block = block.next())
+            {
+                QTextCursor blockCursor(block);
+                blockCursor.select(QTextCursor::BlockUnderCursor);
+                blockCursor.mergeBlockCharFormat(codeBlockTextFormat(blockCursor.blockCharFormat()));
+                if (block == cell.lastCursorPosition().block())
+                {
+                    break;
+                }
+            }
+        }
+    }
+}
+
+void RichTextEdit::applyCodeBlockInputFormat()
+{
+    QTextTable *table = textCursor().currentTable();
+    if (!isCodeBlockTable(table))
+    {
+        return;
+    }
+
+    setCurrentCharFormat(codeBlockTextFormat(currentCharFormat()));
+}
+
 QUrl RichTextEdit::originalImageResourceUrl(const QString &name) const
 {
     QUrl url(name);
@@ -330,6 +415,24 @@ void RichTextEdit::refreshChecklistFormats()
     }
 }
 
+void RichTextEdit::refreshCodeBlockFormats()
+{
+    QTextFrame *rootFrame = document()->rootFrame();
+    if (!rootFrame)
+    {
+        return;
+    }
+
+    for (QTextFrame::iterator it = rootFrame->begin(); !it.atEnd(); ++it)
+    {
+        QTextFrame *childFrame = it.currentFrame();
+        QTextTable *table = dynamic_cast<QTextTable *>(childFrame);
+        refreshCodeBlockTableFormats(table);
+    }
+
+    applyCodeBlockInputFormat();
+}
+
 bool RichTextEdit::eventFilter(QObject *watched, QEvent *event)
 {
     if (watched == qApp && event->type() == QEvent::ApplicationPaletteChange)
@@ -426,6 +529,7 @@ void RichTextEdit::keyPressEvent(QKeyEvent *event)
     {
         // 普通键盘输入前先修正输入格式，处理“删掉 checkbox 后空格再打字”的情况。
         applyChecklistInputFormat();
+        applyCodeBlockInputFormat();
     }
 
     int revision = document()->revision();
@@ -433,6 +537,7 @@ void RichTextEdit::keyPressEvent(QKeyEvent *event)
     if (document()->revision() != revision)
     {
         refreshChecklistBlockFormats(document(), textCursor().block());
+        refreshCodeBlockTableFormats(textCursor().currentTable());
     }
 }
 
@@ -442,6 +547,7 @@ void RichTextEdit::inputMethodEvent(QInputMethodEvent *event)
     {
         // 中文输入法不一定走 keyPressEvent，也需要在 IME 提交前修正输入格式。
         applyChecklistInputFormat();
+        applyCodeBlockInputFormat();
     }
 
     int revision = document()->revision();
@@ -449,6 +555,7 @@ void RichTextEdit::inputMethodEvent(QInputMethodEvent *event)
     if (document()->revision() != revision)
     {
         refreshChecklistBlockFormats(document(), textCursor().block());
+        refreshCodeBlockTableFormats(textCursor().currentTable());
     }
 }
 

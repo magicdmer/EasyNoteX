@@ -59,12 +59,14 @@ public slots:
     void sltFontSizeChanged(int size);
     void sltBoldToggled(bool bold);
     void sltInsertChecklist();
+    void sltInsertCodeBlock();
     void sltPickPenColor();
     void sltPickPaperColor();
 
 private:
     void buildToolbar();
     QIcon checklistButtonIcon() const;
+    QIcon codeBlockButtonIcon() const;
     void applyCharFormatToWholeNote(const QTextCharFormat& fmt);
     void removeRichTextSourceWhitespace(QDomNode node);
     void writePaperToHtml(const QColor& color);
@@ -87,6 +89,7 @@ private:
     QSpinBox* m_sizeSpin;
     QToolButton* m_boldBtn;
     QToolButton* m_checklistBtn;
+    QToolButton* m_codeBlockBtn;
     QToolButton* m_penBtn;
     QToolButton* m_paperBtn;
     QColor m_penColor;

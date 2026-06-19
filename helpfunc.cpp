@@ -1,4 +1,4 @@
-#include "helpfunc.h"
+﻿#include "helpfunc.h"
 
 #include <QCoreApplication>
 #include <QDir>
@@ -259,6 +259,21 @@ bool textHasChecklistPrefix(const QString &text)
 
     QChar ch = text.at(0);
     return ch == checklistUncheckedChar() || ch == checklistCheckedChar();
+}
+
+QString codeBlockFontFamily()
+{
+    return QStringLiteral("Consolas");
+}
+
+QColor codeBlockBackgroundColor()
+{
+    return QColor(QLatin1String("#f6f8fa"));
+}
+
+QColor codeBlockBorderColor()
+{
+    return QColor(QLatin1String("#d0d7de"));
 }
 
 bool isUos()

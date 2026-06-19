@@ -1,7 +1,8 @@
-#ifndef HELPFUNC_H
+﻿#ifndef HELPFUNC_H
 #define HELPFUNC_H
 
 #include <QChar>
+#include <QColor>
 #include <QIcon>
 #include <QString>
 #include <QStyle>
@@ -25,5 +26,8 @@ QChar checklistCheckedChar();
 QString checklistPrefix(bool checked);
 QString checklistMarkerFontFamily();
 bool textHasChecklistPrefix(const QString &text);
+QString codeBlockFontFamily();
+QColor codeBlockBackgroundColor();
+QColor codeBlockBorderColor();
 
 #endif // HELPFUNC_H

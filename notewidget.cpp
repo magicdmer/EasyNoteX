@@ -22,6 +22,11 @@
 #include <QPalette>
 #include <QStringList>
 #include <QTextBlock>
+#include <QTextBlockFormat>
+#include <QTextFrameFormat>
+#include <QTextLength>
+#include <QTextTable>
+#include <QTextTableFormat>
 #include <QVector>
 
 #if defined(_MSC_VER) && (_MSC_VER >= 1600)
@@ -43,6 +48,27 @@ QIcon NoteWidget::checklistButtonIcon() const
     painter.setPen(QApplication::palette().color(QPalette::ButtonText));
     QRect textRect = pix.rect().adjusted(0, -2, 0, -2);
     painter.drawText(textRect, Qt::AlignCenter, QString(checklistCheckedChar()));
+    painter.end();
+
+    return QIcon(pix);
+}
+
+QIcon NoteWidget::codeBlockButtonIcon() const
+{
+    QPixmap pix(20, 20);
+    pix.fill(Qt::transparent);
+
+    QPainter painter(&pix);
+    painter.setRenderHint(QPainter::TextAntialiasing, true);
+
+    QColor color = QApplication::palette().color(QPalette::ButtonText);
+    painter.setPen(color);
+
+    QFont font(codeBlockFontFamily());
+    font.setPixelSize(14);
+    font.setBold(true);
+    painter.setFont(font);
+    painter.drawText(pix.rect().adjusted(0, 1, 0, 0), Qt::AlignCenter, QStringLiteral("<>"));
     painter.end();
 
     return QIcon(pix);
@@ -198,6 +224,13 @@ void NoteWidget::buildToolbar()
     m_checklistBtn->setIconSize(QSize(20, 20));
     m_checklistBtn->setToolTip(tr("插入待办项"));
 
+    m_codeBlockBtn = new QToolButton(bar);
+    m_codeBlockBtn->setFixedSize(30, 26);
+    m_codeBlockBtn->setToolButtonStyle(Qt::ToolButtonIconOnly);
+    m_codeBlockBtn->setIcon(codeBlockButtonIcon());
+    m_codeBlockBtn->setIconSize(QSize(20, 20));
+    m_codeBlockBtn->setToolTip(tr("插入代码块"));
+
     m_penBtn = new QToolButton(bar);
     m_penBtn->setFixedSize(26, 26);
     m_penBtn->setToolButtonStyle(Qt::ToolButtonIconOnly);
@@ -216,6 +249,7 @@ void NoteWidget::buildToolbar()
     h->addWidget(m_penBtn);
     h->addWidget(m_paperBtn);
     h->addWidget(m_checklistBtn);
+    h->addWidget(m_codeBlockBtn);
     h->addStretch(1);
 
     m_textEdit->setFrameShape(QFrame::NoFrame);
@@ -229,6 +263,7 @@ void NoteWidget::buildToolbar()
     connect(m_sizeSpin, SIGNAL(valueChanged(int)), this, SLOT(sltFontSizeChanged(int)));
     connect(m_boldBtn, SIGNAL(toggled(bool)), this, SLOT(sltBoldToggled(bool)));
     connect(m_checklistBtn, SIGNAL(clicked()), this, SLOT(sltInsertChecklist()));
+    connect(m_codeBlockBtn, SIGNAL(clicked()), this, SLOT(sltInsertCodeBlock()));
     connect(m_penBtn, SIGNAL(clicked()), this, SLOT(sltPickPenColor()));
     connect(m_paperBtn, SIGNAL(clicked()), this, SLOT(sltPickPaperColor()));
 }
@@ -383,6 +418,79 @@ void NoteWidget::sltInsertChecklist()
     m_textEdit->setFocus();
 }
 
+void NoteWidget::sltInsertCodeBlock()
+{
+    QTextCursor cursor = m_textEdit->textCursor();
+    QTextBlockFormat bodyBlockFormat = cursor.blockFormat();
+    QTextCharFormat bodyFormat = cursor.charFormat();
+    QFont bodyFont = m_textEdit->font();
+    bodyFormat.setFont(bodyFont);
+    bodyFormat.setFontFamily(bodyFont.family());
+    bodyFormat.setFontFamilies(QStringList() << bodyFont.family());
+    bodyFormat.setFontStrikeOut(false);
+    if (m_penColor.isValid())
+    {
+        bodyFormat.setForeground(m_penColor);
+    }
+
+    QString selectedText;
+    if (cursor.hasSelection())
+    {
+        selectedText = cursor.selectedText();
+        selectedText.replace(QChar::ParagraphSeparator, QLatin1Char('\n'));
+        selectedText.replace(QChar::LineSeparator, QLatin1Char('\n'));
+    }
+
+    QTextTableFormat tableFormat;
+    tableFormat.setWidth(QTextLength(QTextLength::PercentageLength, 80));
+    tableFormat.setBorder(1);
+    tableFormat.setBorderBrush(codeBlockBorderColor());
+    tableFormat.setBorderStyle(QTextFrameFormat::BorderStyle_Solid);
+    tableFormat.setCellPadding(8);
+    tableFormat.setCellSpacing(0);
+    tableFormat.setBackground(codeBlockBackgroundColor());
+
+    QTextCharFormat codeFormat;
+    QFont codeFont(codeBlockFontFamily());
+    codeFont.setStyleHint(QFont::Monospace);
+    if (m_sizeSpin->value() > 0)
+    {
+        codeFont.setPointSize(m_sizeSpin->value());
+    }
+    codeFont.setBold(false);
+    codeFormat.setFont(codeFont);
+    codeFormat.setFontFamily(codeFont.family());
+    codeFormat.setFontFamilies(QStringList() << codeFont.family());
+    codeFormat.setFontWeight(QFont::Normal);
+    codeFormat.setFontStrikeOut(false);
+
+    cursor.beginEditBlock();
+    if (cursor.hasSelection())
+    {
+        cursor.removeSelectedText();
+    }
+
+    // 第一版代码块直接用 1x1 表格承载，尽量复用 QTextEdit 的 HTML 保存/加载能力。
+    QTextTable* table = cursor.insertTable(1, 1, tableFormat);
+    QTextCursor cellCursor = table->cellAt(0, 0).firstCursorPosition();
+    if (!selectedText.isEmpty())
+    {
+        cellCursor.insertText(selectedText, codeFormat);
+    }
+    cellCursor.mergeCharFormat(codeFormat);
+
+    // 表格后显式放一个正文格式段落，避免鼠标点到代码块下方时继续继承 Consolas。
+    QTextCursor afterTable(m_textEdit->document());
+    int afterPos = qMin(table->lastPosition() + 1, m_textEdit->document()->characterCount() - 1);
+    afterTable.setPosition(afterPos);
+    afterTable.insertBlock(bodyBlockFormat, bodyFormat);
+    afterTable.setCharFormat(bodyFormat);
+    cursor.endEditBlock();
+
+    m_textEdit->setTextCursor(cellCursor);
+    m_textEdit->setFocus();
+}
+
 void NoteWidget::sltPickPenColor()
 {
     QColor init = m_penColor.isValid() ? m_penColor : QColor(Qt::black);
@@ -423,6 +531,7 @@ void NoteWidget::applyCharFormatToWholeNote(const QTextCharFormat& fmt)
     // 让后续输入也沿用该格式。
     m_textEdit->mergeCurrentCharFormat(fmt);
     m_textEdit->refreshChecklistFormats();
+    m_textEdit->refreshCodeBlockFormats();
 
     // 整篇格式变化后强制重排并重绘，否则可能出现“文字消失、需缩放窗口才刷新”的问题。
     QTextDocument* doc = m_textEdit->document();
@@ -477,6 +586,7 @@ bool NoteWidget::load()
     m_textEdit->setHtml(content);
     m_textEdit->refreshImageResources();
     m_textEdit->refreshChecklistFormats();
+    m_textEdit->refreshCodeBlockFormats();
 
     // 还原该便签保存的纸色（body bgcolor）到编辑器调色板。
     QDomNodeList bodyNodeList = doc.elementsByTagName("body");
@@ -684,6 +794,7 @@ void NoteWidget::writePaperToHtml(const QColor& color)
     m_textEdit->setHtml(doc.toString(-1));
     m_textEdit->refreshImageResources();
     m_textEdit->refreshChecklistFormats();
+    m_textEdit->refreshCodeBlockFormats();
 }
 
 void NoteWidget::syncToolbar()

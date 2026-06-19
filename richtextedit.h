@@ -14,6 +14,7 @@ class QKeyEvent;
 class QMouseEvent;
 class QTextBlock;
 class QTextDocument;
+class QTextTable;
 
 class RichTextEdit : public QxTextEdit
 {
@@ -23,6 +24,7 @@ public:
     void dealBackTab();
     void refreshImageResources();
     void refreshChecklistFormats();
+    void refreshCodeBlockFormats();
 
 public slots:
     void sltImageRightClicked();
@@ -46,6 +48,10 @@ private:
     static void applyChecklistMarkerFormat(QTextDocument *document, const QTextBlock &block);
     static void refreshChecklistBlockFormats(QTextDocument *document, const QTextBlock &block);
     void applyChecklistInputFormat();
+    static bool isCodeBlockTable(const QTextTable *table);
+    static QTextCharFormat codeBlockTextFormat(const QTextCharFormat &baseFormat);
+    static void refreshCodeBlockTableFormats(QTextTable *table);
+    void applyCodeBlockInputFormat();
     void flattenInactivePalette();
     QUrl originalImageResourceUrl(const QString& name) const;
     QImage imageResource(QTextDocument* document, const QString& name) const;
