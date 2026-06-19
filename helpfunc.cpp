@@ -278,7 +278,7 @@ QString defaultChecklistShortcut()
 
 QString defaultCodeBlockShortcut()
 {
-    return QStringLiteral("Ctrl+>");
+    return QStringLiteral("Ctrl+k");
 }
 
 QString codeBlockFontFamily()
