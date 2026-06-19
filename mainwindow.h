@@ -171,6 +171,7 @@ public:
     QTreeWidgetItem* addGroupItem(const QString& groupName);
 
 private:
+    void connectNoteWidgetSignals(NoteWidget *noteWidget);
 	NoteWidget *findOpenNoteWidget(const QString& groupName, const QString& noteName) const;
 	QString readNotePlainText(const QString& groupName, const QString& noteName) const;
 	bool noteMatchesSearch(const QString& groupName, const QString& noteName, const QString& text) const;

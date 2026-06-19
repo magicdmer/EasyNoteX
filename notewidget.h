@@ -52,6 +52,9 @@ public:
     void dealBackTab();
     void insertTable(int row, int col, int percent);
 
+signals:
+    void sigInsertTableRequested();
+
 public slots:
     void sltTextChanged();
     void sltFilterEntries();
@@ -65,6 +68,7 @@ public slots:
 
 private:
     void buildToolbar();
+    QIcon tableButtonIcon() const;
     QIcon checklistButtonIcon() const;
     QIcon codeBlockButtonIcon() const;
     void applyCharFormatToWholeNote(const QTextCharFormat& fmt);
@@ -88,6 +92,7 @@ private:
     QFontComboBox* m_fontCombo;
     QSpinBox* m_sizeSpin;
     QToolButton* m_boldBtn;
+    QToolButton* m_tableBtn;
     QToolButton* m_checklistBtn;
     QToolButton* m_codeBlockBtn;
     QToolButton* m_penBtn;

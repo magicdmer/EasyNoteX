@@ -33,6 +33,33 @@
 # pragma execution_character_set("utf-8")
 #endif
 
+QIcon NoteWidget::tableButtonIcon() const
+{
+    QPixmap pix(20, 20);
+    pix.fill(Qt::transparent);
+
+    QPainter painter(&pix);
+    painter.setRenderHint(QPainter::Antialiasing, false);
+
+    QColor color = QApplication::palette().color(QPalette::ButtonText);
+    QPen pen(color);
+    pen.setWidth(0);
+    pen.setCosmetic(true);
+    painter.setPen(pen);
+    painter.setBrush(Qt::NoBrush);
+
+    // 15x15 的正方形按 5px 一格精确九等分，保证图标更醒目且分割均匀。
+    const QRect rect(2, 2, 15, 15);
+    painter.drawRect(rect);
+    painter.drawLine(7, 2, 7, 16);
+    painter.drawLine(12, 2, 12, 16);
+    painter.drawLine(2, 7, 16, 7);
+    painter.drawLine(2, 12, 16, 12);
+
+    painter.end();
+    return QIcon(pix);
+}
+
 QIcon NoteWidget::checklistButtonIcon() const
 {
     QPixmap pix(20, 20);
@@ -217,6 +244,13 @@ void NoteWidget::buildToolbar()
     m_boldBtn->setFont(boldFont);
     m_boldBtn->setToolTip(tr("加粗（整篇）"));
 
+    m_tableBtn = new QToolButton(bar);
+    m_tableBtn->setFixedSize(30, 26);
+    m_tableBtn->setToolButtonStyle(Qt::ToolButtonIconOnly);
+    m_tableBtn->setIcon(tableButtonIcon());
+    m_tableBtn->setIconSize(QSize(20, 20));
+    m_tableBtn->setToolTip(tr("插入表格"));
+
     m_checklistBtn = new QToolButton(bar);
     m_checklistBtn->setFixedSize(30, 26);
     m_checklistBtn->setToolButtonStyle(Qt::ToolButtonIconOnly);
@@ -248,6 +282,7 @@ void NoteWidget::buildToolbar()
     h->addWidget(m_boldBtn);
     h->addWidget(m_penBtn);
     h->addWidget(m_paperBtn);
+    h->addWidget(m_tableBtn);
     h->addWidget(m_checklistBtn);
     h->addWidget(m_codeBlockBtn);
     h->addStretch(1);
@@ -262,6 +297,7 @@ void NoteWidget::buildToolbar()
     connect(m_fontCombo, SIGNAL(currentFontChanged(QFont)), this, SLOT(sltFontFamilyChanged(QFont)));
     connect(m_sizeSpin, SIGNAL(valueChanged(int)), this, SLOT(sltFontSizeChanged(int)));
     connect(m_boldBtn, SIGNAL(toggled(bool)), this, SLOT(sltBoldToggled(bool)));
+    connect(m_tableBtn, SIGNAL(clicked()), this, SIGNAL(sigInsertTableRequested()));
     connect(m_checklistBtn, SIGNAL(clicked()), this, SLOT(sltInsertChecklist()));
     connect(m_codeBlockBtn, SIGNAL(clicked()), this, SLOT(sltInsertCodeBlock()));
     connect(m_penBtn, SIGNAL(clicked()), this, SLOT(sltPickPenColor()));

@@ -552,6 +552,7 @@ void MainWindow::initNoteBook()
     if (noNotes)
     {
         NoteWidget* defaultNote = new NoteWidget(ui->tabWidgetNote,m_notebook,QString(),tr("默认页"),m_editor_font,m_default_pen,m_default_paper);
+        connectNoteWidgetSignals(defaultNote);
         ui->tabWidgetNote->addTab(defaultNote,tr("默认页"));
         addNoteItem(QString(), tr("默认页"),
                     QDateTime::currentDateTime().toTime_t(),
@@ -588,6 +589,7 @@ void MainWindow::initNoteBook()
                 if (QFile::exists(filePath))
                 {
                     NoteWidget* note = new NoteWidget(ui->tabWidgetNote,m_notebook,group,fileName,m_editor_font,m_default_pen,m_default_paper);
+                    connectNoteWidgetSignals(note);
                     ui->tabWidgetNote->addTab(note,fileName);
                     if (entry == currentNote || fileName == currentNote)
                     {
@@ -635,6 +637,16 @@ void MainWindow::refreshMenu()
             m_listMoveMenu->addAction(listAction);
         }
     }
+}
+
+void MainWindow::connectNoteWidgetSignals(NoteWidget *noteWidget)
+{
+    if (!noteWidget)
+    {
+        return;
+    }
+
+    connect(noteWidget, SIGNAL(sigInsertTableRequested()), this, SLOT(sltActionInsertTable()));
 }
 
 void MainWindow::save()
@@ -807,6 +819,7 @@ void MainWindow::newTab(const QString& groupName)
         if (!findNoteItem(groupName, newName))
         {
             NoteWidget* note = new NoteWidget(ui->tabWidgetNote,m_notebook,groupName,newName,m_editor_font,m_default_pen,m_default_paper);
+            connectNoteWidgetSignals(note);
             ui->tabWidgetNote->addTab(note,newName);
             ui->tabWidgetNote->setCurrentWidget(note);
 
@@ -974,6 +987,7 @@ void MainWindow::sltTreeItemDoubleClicked(QTreeWidgetItem *item, int column)
     else
     {
         NoteWidget* note = new NoteWidget(ui->tabWidgetNote,m_notebook,group,fileName,m_editor_font,m_default_pen,m_default_paper);
+        connectNoteWidgetSignals(note);
         ui->tabWidgetNote->addTab(note,fileName);
         ui->tabWidgetNote->setCurrentWidget(note);
     }
