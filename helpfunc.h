@@ -7,6 +7,8 @@
 #include <QString>
 #include <QStyle>
 
+class QTextCharFormat;
+
 QString notesRoot();
 QString configRoot();
 QString settingsFile();
@@ -18,6 +20,7 @@ QString normalizedEntryName(const QString &name);
 bool isValidEntryName(const QString &name);
 QIcon stableStandardIcon(QStyle::StandardPixmap sp);
 QIcon fileIcon(const QString &path);
+void setTextCharFormatFontFamily(QTextCharFormat &format, const QString &fontFamily);
 void ensureAppDirs();
 bool isUos();
 bool moveToTrash(const QString &path, QString *errorMessage = nullptr);

@@ -8,6 +8,7 @@
 #include <QApplication>
 #include <QStandardPaths>
 #include <QStringList>
+#include <QTextCharFormat>
 #include <QtGlobal>
 
 #if QT_VERSION < QT_VERSION_CHECK(5, 15, 0)
@@ -129,6 +130,14 @@ QIcon fileIcon(const QString &path)
     QPixmap pm = icon.pixmap(16, 16);
     icon.addPixmap(pm, QIcon::Selected);
     return icon;
+}
+
+void setTextCharFormatFontFamily(QTextCharFormat &format, const QString &fontFamily)
+{
+    format.setFontFamily(fontFamily);
+#if QT_VERSION >= QT_VERSION_CHECK(5, 15, 0)
+    format.setFontFamilies(QStringList() << fontFamily);
+#endif
 }
 
 void ensureAppDirs()

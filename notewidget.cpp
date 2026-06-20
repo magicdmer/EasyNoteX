@@ -21,7 +21,6 @@
 #include <QPixmap>
 #include <QPainter>
 #include <QPalette>
-#include <QStringList>
 #include <QTextBlock>
 #include <QTextBlockFormat>
 #include <QTextFrameFormat>
@@ -374,9 +373,8 @@ void NoteWidget::sltFontFamilyChanged(const QFont& font)
     m_textEdit->document()->setDefaultFont(baseFont);
 
     QTextCharFormat fmt;
-    fmt.setFontFamily(font.family());
     // Qt 可能保留旧的 font-family 列表，必须覆盖列表本身，否则正文下拉字体不一定生效。
-    fmt.setFontFamilies(QStringList() << font.family());
+    setTextCharFormatFontFamily(fmt, font.family());
     applyCharFormatToWholeNote(fmt);
     m_textEdit->setFocus();
 }
@@ -496,8 +494,7 @@ void NoteWidget::sltInsertCodeBlock()
     QTextCharFormat bodyFormat = cursor.charFormat();
     QFont bodyFont = m_textEdit->font();
     bodyFormat.setFont(bodyFont);
-    bodyFormat.setFontFamily(bodyFont.family());
-    bodyFormat.setFontFamilies(QStringList() << bodyFont.family());
+    setTextCharFormatFontFamily(bodyFormat, bodyFont.family());
     bodyFormat.setFontStrikeOut(false);
     if (m_penColor.isValid())
     {
@@ -530,8 +527,7 @@ void NoteWidget::sltInsertCodeBlock()
     }
     codeFont.setBold(false);
     codeFormat.setFont(codeFont);
-    codeFormat.setFontFamily(codeFont.family());
-    codeFormat.setFontFamilies(QStringList() << codeFont.family());
+    setTextCharFormatFontFamily(codeFormat, codeFont.family());
     codeFormat.setFontWeight(QFont::Normal);
     codeFormat.setFontStrikeOut(false);
 

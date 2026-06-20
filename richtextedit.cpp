@@ -6,7 +6,6 @@
 #include <QInputMethodEvent>
 #include <QKeyEvent>
 #include <QMouseEvent>
-#include <QStringList>
 #include <QTextBlock>
 #include <QTextFrame>
 #include <QTextFragment>
@@ -56,8 +55,7 @@ QTextCharFormat RichTextEdit::checklistBodyDefaultFormat(QTextDocument *document
     QTextCharFormat format;
     QFont font = document->defaultFont();
     format.setFont(font);
-    format.setFontFamily(font.family());
-    format.setFontFamilies(QStringList() << font.family());
+    setTextCharFormatFontFamily(format, font.family());
     format.setFontStrikeOut(false);
     return format;
 }
@@ -163,8 +161,7 @@ void RichTextEdit::applyChecklistMarkerFormat(QTextDocument *document, const QTe
         markerFont.setPixelSize(markerFont.pixelSize() + 2);
     }
     format.setFont(markerFont);
-    format.setFontFamily(checklistMarkerFontFamily());
-    format.setFontFamilies(QStringList() << checklistMarkerFontFamily());
+    setTextCharFormatFontFamily(format, checklistMarkerFontFamily());
     format.setFontWeight(QFont::Normal);
     format.setFontStrikeOut(false);
     cursor.mergeCharFormat(format);
@@ -235,8 +232,7 @@ QTextCharFormat RichTextEdit::codeBlockTextFormat(const QTextCharFormat &baseFor
     font.setBold(false);
     font.setWeight(QFont::Normal);
     format.setFont(font);
-    format.setFontFamily(codeBlockFontFamily());
-    format.setFontFamilies(QStringList() << codeBlockFontFamily());
+    setTextCharFormatFontFamily(format, codeBlockFontFamily());
     format.setFontWeight(QFont::Normal);
     format.setFontStrikeOut(false);
     return format;
