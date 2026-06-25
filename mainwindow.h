@@ -115,6 +115,7 @@ public slots:
     void sltActionFind();
     void sltActionSaveToHtml();
     void sltActionSaveToText();
+    void showMainWindow();
     void sltHotKey();
     void sltTrayActived(QSystemTrayIcon::ActivationReason reason);
     void sltExit();

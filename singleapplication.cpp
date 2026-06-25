@@ -113,8 +113,11 @@ void SingleApplication::ActivateWindow()
 {
     if(w)
     {
-        w->show();
-        w->setWindowState(w->windowState() & ~Qt::WindowMinimized | Qt::WindowActive);
+        if (!QMetaObject::invokeMethod(w, "showMainWindow", Qt::DirectConnection))
+        {
+            w->show();
+            w->setWindowState(w->windowState() & ~Qt::WindowMinimized | Qt::WindowActive);
+        }
     }
 }
 
