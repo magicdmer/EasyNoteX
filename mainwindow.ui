@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <ui version="4.0">
  <class>MainWindow</class>
  <widget class="QMainWindow" name="MainWindow">
@@ -65,9 +65,6 @@
         </item>
         <item>
          <widget class="FileTreeWidget" name="treeWidgetFile">
-          <property name="focusPolicy">
-           <enum>Qt::TabFocus</enum>
-          </property>
           <property name="contextMenuPolicy">
            <enum>Qt::CustomContextMenu</enum>
           </property>
