@@ -476,6 +476,17 @@ void RichTextEdit::mousePressEvent(QMouseEvent *event)
 
 void RichTextEdit::keyPressEvent(QKeyEvent *event)
 {
+#ifdef Q_OS_LINUX
+    if (event->key() == Qt::Key_Y &&
+        (event->modifiers() & (Qt::ControlModifier | Qt::ShiftModifier | Qt::AltModifier | Qt::MetaModifier)) ==
+            Qt::ControlModifier)
+    {
+        redo();
+        event->accept();
+        return;
+    }
+#endif
+
     if (!textCursor().hasSelection() && (event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter))
     {
         QTextCursor cursor = textCursor();
