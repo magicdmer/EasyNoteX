@@ -124,6 +124,25 @@ void NoteWidget::removeRichTextSourceWhitespace(QDomNode node)
     }
 }
 
+QString NoteWidget::removeInvalidRichTextChars(const QString& text) const
+{
+    QString cleaned;
+    cleaned.reserve(text.size());
+
+    for (int i = 0; i < text.size(); i++)
+    {
+        const QChar ch = text.at(i);
+        const ushort u = ch.unicode();
+
+        if (u == 0x9 || u == 0xA || u == 0xD || u >= 0x20)
+        {
+            cleaned.append(ch);
+        }
+    }
+
+    return cleaned;
+}
+
 QUrl NoteWidget::originalImageResourceUrl(const QString &name) const
 {
     QUrl url(name);
@@ -618,11 +637,18 @@ bool NoteWidget::load()
     {
         return false;
     }
-    QString fileContent = QString::fromUtf8(file.readAll());
+    QString fileContent = removeInvalidRichTextChars(QString::fromUtf8(file.readAll()));
     file.close();
 
     QDomDocument doc;
-    doc.setContent(fileContent.toUtf8());
+    if (!doc.setContent(fileContent.toUtf8()))
+    {
+        m_textEdit->setHtml(fileContent);
+        m_textEdit->refreshImageResources();
+        m_textEdit->refreshChecklistFormats();
+        m_textEdit->refreshCodeBlockFormats();
+        return true;
+    }
 
     QDomNodeList imgNodeList = doc.elementsByTagName("img");
     for (int i = 0; i < imgNodeList.count(); i++)
@@ -680,36 +706,43 @@ bool NoteWidget::save()
         return false;
     }
 
+    QString fileContent = removeInvalidRichTextChars(m_textEdit->toHtml());
+
+    QDomDocument doc;
+    QByteArray contentArray;
+    if (doc.setContent(fileContent.toUtf8()))
+    {
+        QDomNodeList imgNodeList = doc.elementsByTagName("img");
+        for (int i = 0; i < imgNodeList.count(); i++)
+        {
+            QDomNode node = imgNodeList.at(i);
+            QDomElement imgEle = node.toElement();
+            QString imgUrl = imgEle.attribute("src");
+            QImage image = imageResource(m_textEdit->document(), imgUrl);
+
+            QByteArray array;
+            QBuffer buffer(&array);
+            buffer.open(QIODevice::WriteOnly);
+            image.save(&buffer,"png");
+            QString imageBase64 = array.toBase64();
+
+            imgEle.setAttribute("src","data:image/png;base64," + imageBase64);
+        }
+
+        removeRichTextSourceWhitespace(doc);
+        contentArray = doc.toByteArray(-1);
+    }
+    else
+    {
+        contentArray = fileContent.toUtf8();
+    }
+
     QFile file(m_filePath);
     if (!file.open(QIODevice::WriteOnly))
     {
         return false;
     }
 
-    QString fileContent = m_textEdit->toHtml();
-
-    QDomDocument doc;
-    doc.setContent(fileContent.toUtf8());
-
-    QDomNodeList imgNodeList = doc.elementsByTagName("img");
-    for (int i = 0; i < imgNodeList.count(); i++)
-    {
-        QDomNode node = imgNodeList.at(i);
-        QDomElement imgEle = node.toElement();
-        QString imgUrl = imgEle.attribute("src");
-        QImage image = imageResource(m_textEdit->document(), imgUrl);
-
-        QByteArray array;
-        QBuffer buffer(&array);
-        buffer.open(QIODevice::WriteOnly);
-        image.save(&buffer,"png");
-        QString imageBase64 = array.toBase64();
-
-        imgEle.setAttribute("src","data:image/png;base64," + imageBase64);
-    }
-
-    removeRichTextSourceWhitespace(doc);
-    QByteArray contentArray = doc.toByteArray(-1);
     file.write(contentArray);
     file.close();
 
@@ -843,10 +876,13 @@ void NoteWidget::setPaperColor(const QColor& color)
 
 void NoteWidget::writePaperToHtml(const QColor& color)
 {
-    QString fileContent = m_textEdit->toHtml();
+    QString fileContent = removeInvalidRichTextChars(m_textEdit->toHtml());
 
     QDomDocument doc;
-    doc.setContent(fileContent.toUtf8());
+    if (!doc.setContent(fileContent.toUtf8()))
+    {
+        return;
+    }
 
     QDomNodeList bodyNodeList = doc.elementsByTagName("body");
     if (bodyNodeList.isEmpty())

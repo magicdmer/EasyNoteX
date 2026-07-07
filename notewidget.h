@@ -74,6 +74,7 @@ private:
     QIcon checklistButtonIcon() const;
     QIcon codeBlockButtonIcon() const;
     void applyCharFormatToWholeNote(const QTextCharFormat& fmt);
+    QString removeInvalidRichTextChars(const QString& text) const;
     void removeRichTextSourceWhitespace(QDomNode node);
     void writePaperToHtml(const QColor& color);
     void syncToolbar();
