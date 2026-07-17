@@ -20,6 +20,7 @@
 #include <QApplication>
 #include <QStyle>
 #include <QTextDocument>
+#include <QKeyEvent>
 
 #if defined(_MSC_VER) && (_MSC_VER >= 1600)
 # pragma execution_character_set("utf-8")
@@ -28,6 +29,7 @@
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
+    , m_findDlg(nullptr)
     , m_can_exit(false)
     , m_isUos(isUos())
 {
@@ -167,7 +169,6 @@ MainWindow::MainWindow(QWidget *parent)
 
     keepTreeAlwaysActive();
 
-    m_findDlg = new FindDialog(this);
     m_tableDlg = new SetTableDialog(this);
 
     const QString settingsPath = settingsFile();
@@ -779,6 +780,11 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event)
         {
             if (this->windowState() & Qt::WindowMinimized)
             {
+                if (m_findDlg != nullptr)
+                {
+                    m_findDlg->hide();
+                }
+
                 int minToTray = m_setting->value("minimize_to_tray").toInt(0);
                 if (minToTray)
                 {
@@ -797,13 +803,39 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event)
                 return true;
             }
         }
+        else if (event->type() == QEvent::Hide)
+        {
+            if (m_findDlg != nullptr)
+            {
+                m_findDlg->hide();
+            }
+        }
     }
 
     if (event->type() == QEvent::KeyPress)
     {
         QKeyEvent *me = static_cast<QKeyEvent*>(event);
+        if (me->key() == Qt::Key_Escape && m_findDlg != nullptr && m_findDlg->isVisible())
+        {
+            m_findDlg->hide();
+            return true;
+        }
+
+        // 应用级事件过滤不要劫持其他顶层窗口（查找框等）的按键，
+        // 否则 Escape 会把主窗口藏到托盘，查找框原生窗口状态异常。
+        QWidget *widget = qobject_cast<QWidget*>(watched);
+        if (widget != nullptr && widget->window() != this)
+        {
+            return false;
+        }
+
         if (me->key() == Qt::Key_Escape)
         {
+            if (me->isAutoRepeat())
+            {
+                return true;
+            }
+
             int escToTray = m_setting->value("esc_to_tray").toInt(0);
             if (escToTray)
             {
@@ -821,10 +853,10 @@ bool MainWindow::eventFilter(QObject *watched, QEvent *event)
         }
         else if (me->key() == Qt::Key_Backtab)
         {
-            NoteWidget* widget = (NoteWidget*)ui->tabWidgetNote->currentWidget();
-            if (widget)
+            NoteWidget* noteWidget = (NoteWidget*)ui->tabWidgetNote->currentWidget();
+            if (noteWidget)
             {
-                widget->dealBackTab();
+                noteWidget->dealBackTab();
             }
             return true;
         }
@@ -1047,7 +1079,26 @@ void MainWindow::sltTabDoubleClicked(int index)
 
 void MainWindow::sltActionFind()
 {
+    // 每次创建新的原生窗口，避免长期存活的对话框在主窗口状态变化后显示异常。
+    QString lastText;
+    bool caseSensitive = false;
+    bool findBackward = false;
+    if (m_findDlg != nullptr)
+    {
+        lastText = m_findDlg->findText();
+        caseSensitive = m_findDlg->caseSensitive();
+        findBackward = m_findDlg->findBackward();
+        delete m_findDlg;
+        m_findDlg = nullptr;
+    }
+
+    m_findDlg = new FindDialog(this);
+    m_findDlg->setFindText(lastText);
+    m_findDlg->setCaseSensitive(caseSensitive);
+    m_findDlg->setFindBackward(findBackward);
     m_findDlg->show();
+    m_findDlg->raise();
+    m_findDlg->activateWindow();
 }
 
 void MainWindow::sltActionInsertTable()

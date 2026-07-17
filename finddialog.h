@@ -15,6 +15,13 @@ public:
     explicit FindDialog(QWidget *parent = nullptr);
     ~FindDialog();
 
+    QString findText() const;
+    void setFindText(const QString &text);
+    bool caseSensitive() const;
+    void setCaseSensitive(bool on);
+    bool findBackward() const;
+    void setFindBackward(bool on);
+
 public slots:
     void sltPushFindClicked();
 

@@ -8,7 +8,7 @@
 #endif
 
 FindDialog::FindDialog(QWidget *parent) :
-    QDialog(parent),
+    QDialog(parent, Qt::Tool),
     ui(new Ui::FindDialog)
 {
     ui->setupUi(this);
@@ -19,6 +19,43 @@ FindDialog::FindDialog(QWidget *parent) :
 FindDialog::~FindDialog()
 {
     delete ui;
+}
+
+QString FindDialog::findText() const
+{
+    return ui->lineEdit->text();
+}
+
+void FindDialog::setFindText(const QString &text)
+{
+    ui->lineEdit->setText(text);
+}
+
+bool FindDialog::caseSensitive() const
+{
+    return ui->checkBoxCaseSensitive->isChecked();
+}
+
+void FindDialog::setCaseSensitive(bool on)
+{
+    ui->checkBoxCaseSensitive->setChecked(on);
+}
+
+bool FindDialog::findBackward() const
+{
+    return ui->radioButtonBackward->isChecked();
+}
+
+void FindDialog::setFindBackward(bool on)
+{
+    if (on)
+    {
+        ui->radioButtonBackward->setChecked(true);
+    }
+    else
+    {
+        ui->radioButtonForward->setChecked(true);
+    }
 }
 
 void FindDialog::sltPushFindClicked()
