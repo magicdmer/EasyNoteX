@@ -5,7 +5,8 @@
 支持记事本分类、标签页编辑、即时保存，托盘驻留和全局快捷键。
 
 #### 预览
-<img width="1361" height="929" alt="EasyNoteX" src="https://github.com/user-attachments/assets/cd51144b-dc97-445e-b358-63dece19bb9c" />
+<img width="1532" height="1071" alt="image" src="https://github.com/user-attachments/assets/dc95ebf1-333e-4f90-be78-7d0305ac55a5" />
+
 
 
 #### 使用说明
@@ -16,7 +17,9 @@
 5. 如果新建的标签页为空白，关闭标签页会自动删除文件
 6. 记事本下拉框右键可以进行新建，改名，删除操作
 7. 可以设置全局快捷键快捷打开和隐藏该软件，如果需要使用此功能，建议开启最小化和关闭到托盘的两个选项
-8. ctrl+i 插入表格
+8. 支持插入简易表格
+9. 支持插入简易待办列表
+10. 支持插入简易代码段
 
 
 #### 交流
