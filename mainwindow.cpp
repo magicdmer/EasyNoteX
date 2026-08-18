@@ -18,6 +18,7 @@
 #include <QGuiApplication>
 #include <QScreen>
 #include <QApplication>
+#include <QPalette>
 #include <QStyle>
 #include <QTextDocument>
 #include <QKeyEvent>
@@ -184,7 +185,12 @@ MainWindow::MainWindow(QWidget *parent)
         QFont font("微软雅黑",14);
         m_setting->setValue("/Editor/font",font.toString());
         m_editor_font = font;
-        m_default_pen = QColor(Qt::black);
+        m_default_pen = QApplication::palette().color(QPalette::Text);
+        if (!m_default_pen.isValid())
+        {
+            m_default_pen = QColor(Qt::black);
+        }
+        m_setting->setValue("/Editor/pen_color", m_default_pen.name());
         m_default_paper = QColor(Qt::white);
         m_hotkey = defaultGlobalHotkey();
         m_tableShortcut = defaultTableShortcut();
