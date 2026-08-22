@@ -13,7 +13,7 @@
 # pragma execution_character_set("utf-8")
 #endif
 
-#define APP_VERSION "1.4.7"
+#define APP_VERSION "1.4.8"
 
 int main(int argc, char *argv[])
 {
