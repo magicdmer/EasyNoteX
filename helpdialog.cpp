@@ -1,4 +1,4 @@
-#include "helpdialog.h"
+﻿#include "helpdialog.h"
 #include "ui_helpdialog.h"
 
 HelpDialog::HelpDialog(QWidget *parent) :
@@ -6,6 +6,7 @@ HelpDialog::HelpDialog(QWidget *parent) :
     ui(new Ui::HelpDialog)
 {
     ui->setupUi(this);
+    setWindowFlags(windowFlags() & ~Qt::WindowContextHelpButtonHint);
 }
 
 HelpDialog::~HelpDialog()
