@@ -372,9 +372,22 @@ QString MainWindow::readNotePlainText(const QString& groupName, const QString& n
 		return noteWidget->plainText();
 	}
 
-	QFile file(noteFilePath(m_notebook, groupName, noteName));
+	const QString filePath = noteFilePath(m_notebook, groupName, noteName);
+	const QFileInfo fileInfo(filePath);
+	const qint64 fileSize = fileInfo.size();
+	const qint64 lastModified = fileInfo.lastModified().toMSecsSinceEpoch();
+	const auto cacheIt = m_noteSearchCache.constFind(filePath);
+	if (cacheIt != m_noteSearchCache.constEnd()
+		&& cacheIt->fileSize == fileSize
+		&& cacheIt->lastModified == lastModified)
+	{
+		return cacheIt->plainText;
+	}
+
+	QFile file(filePath);
 	if (!file.open(QIODevice::ReadOnly))
 	{
+		m_noteSearchCache.remove(filePath);
 		return QString();
 	}
 
@@ -383,7 +396,13 @@ QString MainWindow::readNotePlainText(const QString& groupName, const QString& n
 
 	QTextDocument document;
 	document.setHtml(html);
-	return document.toPlainText();
+
+	NoteSearchCacheEntry cacheEntry;
+	cacheEntry.fileSize = fileSize;
+	cacheEntry.lastModified = lastModified;
+	cacheEntry.plainText = document.toPlainText();
+	m_noteSearchCache.insert(filePath, cacheEntry);
+	return cacheEntry.plainText;
 }
 
 bool MainWindow::noteMatchesSearch(const QString& groupName, const QString& noteName, const QString& text) const

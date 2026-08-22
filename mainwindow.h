@@ -14,6 +14,7 @@
 #include <QLabel>
 #include <QMovie>
 #include <QTimer>
+#include <QHash>
 #include "qxtglobalshortcut.h"
 #include "settabledialog.h"
 
@@ -172,6 +173,13 @@ public:
     QTreeWidgetItem* addGroupItem(const QString& groupName);
 
 private:
+    struct NoteSearchCacheEntry
+    {
+        qint64 fileSize;
+        qint64 lastModified;
+        QString plainText;
+    };
+
     void applyEditorShortcuts();
     void connectNoteWidgetSignals(NoteWidget *noteWidget);
 	NoteWidget *findOpenNoteWidget(const QString& groupName, const QString& noteName) const;
@@ -225,5 +233,6 @@ private:
     QLabel* m_loadingLabel;
     QMovie* m_loadingMovie;
     QTimer* m_filterTimer;
+    mutable QHash<QString, NoteSearchCacheEntry> m_noteSearchCache;
 };
 #endif // MAINWINDOW_H
