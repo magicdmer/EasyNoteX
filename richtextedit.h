@@ -49,9 +49,11 @@ private:
     static void refreshChecklistBlockFormats(QTextDocument *document, const QTextBlock &block);
     void applyChecklistInputFormat();
     static bool isCodeBlockTable(const QTextTable *table);
+    static bool codeBlockTableIsEmpty(const QTextTable *table);
     static QTextCharFormat codeBlockTextFormat(const QTextCharFormat &baseFormat);
     static void refreshCodeBlockTableFormats(QTextTable *table);
     void applyCodeBlockInputFormat();
+    bool removeEmptyCodeBlock();
     void flattenInactivePalette();
     QUrl originalImageResourceUrl(const QString& name) const;
     QImage imageResource(QTextDocument* document, const QString& name) const;

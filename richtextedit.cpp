@@ -223,6 +223,30 @@ bool RichTextEdit::isCodeBlockTable(const QTextTable *table)
         && format.borderBrush().color() == codeBlockBorderColor();
 }
 
+bool RichTextEdit::codeBlockTableIsEmpty(const QTextTable *table)
+{
+    if (!isCodeBlockTable(table))
+    {
+        return false;
+    }
+
+    QTextTableCell cell = table->cellAt(0, 0);
+    QTextBlock lastBlock = cell.lastCursorPosition().block();
+    for (QTextBlock block = cell.firstCursorPosition().block(); block.isValid(); block = block.next())
+    {
+        if (!block.text().isEmpty())
+        {
+            return false;
+        }
+        if (block == lastBlock)
+        {
+            break;
+        }
+    }
+
+    return true;
+}
+
 QTextCharFormat RichTextEdit::codeBlockTextFormat(const QTextCharFormat &baseFormat)
 {
     QTextCharFormat format = baseFormat;
@@ -285,6 +309,27 @@ void RichTextEdit::applyCodeBlockInputFormat()
     }
 
     setCurrentCharFormat(codeBlockTextFormat(currentCharFormat()));
+}
+
+bool RichTextEdit::removeEmptyCodeBlock()
+{
+    QTextTable *table = textCursor().currentTable();
+    if (!codeBlockTableIsEmpty(table))
+    {
+        return false;
+    }
+
+    int removePosition = qMax(0, table->firstPosition() - 1);
+    QTextCursor cursor(document());
+    cursor.setPosition(removePosition);
+    cursor.beginEditBlock();
+    table->removeRows(0, table->rows());
+    cursor.endEditBlock();
+
+    cursor.setPosition(qMin(removePosition, document()->characterCount() - 1));
+    setTextCursor(cursor);
+    setCurrentCharFormat(cursor.charFormat());
+    return true;
 }
 
 QUrl RichTextEdit::originalImageResourceUrl(const QString &name) const
@@ -486,6 +531,14 @@ void RichTextEdit::keyPressEvent(QKeyEvent *event)
         return;
     }
 #endif
+
+    if (!textCursor().hasSelection() &&
+        (event->key() == Qt::Key_Backspace || event->key() == Qt::Key_Delete) &&
+        removeEmptyCodeBlock())
+    {
+        event->accept();
+        return;
+    }
 
     if (!textCursor().hasSelection() && (event->key() == Qt::Key_Return || event->key() == Qt::Key_Enter))
     {

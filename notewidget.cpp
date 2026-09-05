@@ -241,7 +241,7 @@ NoteWidget::NoteWidget(QWidget *parent,QString noteName, QString groupName, QStr
 
 NoteWidget::~NoteWidget()
 {
-    if (!m_textEdit->toPlainText().isEmpty())
+    if (!isEmpty())
     {
         if (m_textChanged)
             save();
@@ -983,12 +983,12 @@ void NoteWidget::setTabWidth(int width)
 
 bool NoteWidget::isEmpty()
 {
-    return m_textEdit->toPlainText().isEmpty();
+    return m_textEdit->toPlainText().trimmed().isEmpty();
 }
 
 void NoteWidget::deletefile()
 {
-    if (!m_textEdit->toPlainText().isEmpty())
+    if (!isEmpty())
     {
         moveToTrash(m_filePath);
     }
