@@ -178,6 +178,38 @@ void RichTextEdit::refreshChecklistBlockFormats(QTextDocument *document, const Q
     applyChecklistMarkerFormat(document, block);
 }
 
+void RichTextEdit::restorePastedChecklistSpaces(int startPosition, int endPosition)
+{
+    QTextDocument *doc = document();
+    QTextBlock block = doc->findBlock(qMax(0, startPosition));
+    while (block.isValid() && block.position() <= endPosition)
+    {
+        QString text = block.text();
+        QTextCursor blockCursor(block);
+        if (textHasChecklistPrefix(text)
+            && (text.size() < 2 || text.at(1) != QLatin1Char(' '))
+            && !isCodeBlockTable(blockCursor.currentTable()))
+        {
+            QTextCharFormat format = checklistBodyDefaultFormat(doc);
+            if (text.size() > 1)
+            {
+                QTextCursor bodyCursor(doc);
+                bodyCursor.setPosition(block.position() + 1);
+                bodyCursor.movePosition(QTextCursor::NextCharacter, QTextCursor::KeepAnchor);
+                format = bodyCursor.charFormat();
+                format.setFontStrikeOut(false);
+            }
+
+            QTextCursor spaceCursor(doc);
+            spaceCursor.setPosition(block.position() + 1);
+            spaceCursor.insertText(QStringLiteral(" "), format);
+            endPosition++;
+        }
+
+        block = block.next();
+    }
+}
+
 void RichTextEdit::applyChecklistInputFormat()
 {
     QTextCursor cursor = textCursor();
@@ -297,6 +329,26 @@ void RichTextEdit::refreshCodeBlockTableFormats(QTextTable *table)
                 }
             }
         }
+    }
+}
+
+void RichTextEdit::refreshCodeBlockFrameFormats(QTextFrame *frame)
+{
+    if (!frame)
+    {
+        return;
+    }
+
+    for (QTextFrame::iterator it = frame->begin(); !it.atEnd(); ++it)
+    {
+        QTextFrame *childFrame = it.currentFrame();
+        if (!childFrame)
+        {
+            continue;
+        }
+
+        refreshCodeBlockTableFormats(dynamic_cast<QTextTable *>(childFrame));
+        refreshCodeBlockFrameFormats(childFrame);
     }
 }
 
@@ -464,12 +516,7 @@ void RichTextEdit::refreshCodeBlockFormats()
         return;
     }
 
-    for (QTextFrame::iterator it = rootFrame->begin(); !it.atEnd(); ++it)
-    {
-        QTextFrame *childFrame = it.currentFrame();
-        QTextTable *table = dynamic_cast<QTextTable *>(childFrame);
-        refreshCodeBlockTableFormats(table);
-    }
+    refreshCodeBlockFrameFormats(rootFrame);
 
     applyCodeBlockInputFormat();
 }
@@ -621,9 +668,14 @@ void RichTextEdit::inputMethodEvent(QInputMethodEvent *event)
 
 void RichTextEdit::insertFromMimeData(const QMimeData *source)
 {
-    QTextCursor cursor = textCursor();
-    cursor.beginEditBlock();
+    int startPosition = textCursor().selectionStart();
     QxTextEdit::insertFromMimeData(source);
+
+    // QTextTable 要在插入结束后才会出现在 frame 树中，再刷新才能恢复代码块字体。
+    // 合并到上一条编辑命令，确保一次撤销仍能撤掉整次粘贴。
+    QTextCursor cursor = textCursor();
+    cursor.joinPreviousEditBlock();
+    restorePastedChecklistSpaces(startPosition, cursor.position());
     refreshChecklistFormats();
     refreshCodeBlockFormats();
     cursor.endEditBlock();

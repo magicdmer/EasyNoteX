@@ -14,6 +14,7 @@ class QKeyEvent;
 class QMouseEvent;
 class QTextBlock;
 class QTextDocument;
+class QTextFrame;
 class QTextTable;
 
 class RichTextEdit : public QxTextEdit
@@ -48,10 +49,12 @@ private:
     static void applyChecklistTextState(QTextDocument *document, const QTextBlock &block, bool checked);
     static void applyChecklistMarkerFormat(QTextDocument *document, const QTextBlock &block);
     static void refreshChecklistBlockFormats(QTextDocument *document, const QTextBlock &block);
+    void restorePastedChecklistSpaces(int startPosition, int endPosition);
     void applyChecklistInputFormat();
     static bool isCodeBlockTable(const QTextTable *table);
     static bool codeBlockTableIsEmpty(const QTextTable *table);
     static QTextCharFormat codeBlockTextFormat(const QTextCharFormat &baseFormat);
+    static void refreshCodeBlockFrameFormats(QTextFrame *frame);
     static void refreshCodeBlockTableFormats(QTextTable *table);
     void applyCodeBlockInputFormat();
     bool removeEmptyCodeBlock();
