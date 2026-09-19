@@ -10,12 +10,6 @@
     <height>636</height>
    </rect>
   </property>
-  <property name="font">
-   <font>
-    <family>微软雅黑</family>
-    <pointsize>10</pointsize>
-   </font>
-  </property>
   <property name="windowTitle">
    <string>EasyNoteX</string>
   </property>
@@ -90,12 +84,6 @@
        </layout>
       </widget>
       <widget class="QTabWidget" name="tabWidgetNote">
-       <property name="font">
-        <font>
-         <family>微软雅黑</family>
-         <pointsize>10</pointsize>
-        </font>
-       </property>
        <property name="contextMenuPolicy">
         <enum>Qt::CustomContextMenu</enum>
        </property>

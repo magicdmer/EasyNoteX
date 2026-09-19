@@ -15,6 +15,7 @@ class QFontComboBox;
 class QShortcut;
 class QSpinBox;
 class QToolButton;
+class QDomDocument;
 class QDomNode;
 class QIcon;
 
@@ -76,6 +77,7 @@ private:
     void applyCharFormatToWholeNote(const QTextCharFormat& fmt);
     QString removeInvalidRichTextChars(const QString& text) const;
     void removeRichTextSourceWhitespace(QDomNode node);
+    void restoreNoteFont(const QDomDocument& doc);
     void writePaperToHtml(const QColor& color);
     void syncToolbar();
     void updateColorButton(QToolButton* button, const QColor& color, bool isBackground);

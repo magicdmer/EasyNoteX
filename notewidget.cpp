@@ -677,6 +677,7 @@ bool NoteWidget::load()
     removeRichTextSourceWhitespace(doc);
     QString content = doc.toString(-1);
     m_textEdit->setHtml(content);
+    restoreNoteFont(doc);
     m_textEdit->refreshImageResources();
     m_textEdit->refreshChecklistFormats();
     m_textEdit->refreshCodeBlockFormats();
@@ -697,6 +698,40 @@ bool NoteWidget::load()
     }
 
     return true;
+}
+
+void NoteWidget::restoreNoteFont(const QDomDocument& doc)
+{
+    QDomNodeList bodyNodeList = doc.elementsByTagName("body");
+    if (bodyNodeList.isEmpty())
+    {
+        return;
+    }
+
+    QString style = bodyNodeList.at(0).toElement().attribute("style");
+    if (style.isEmpty())
+    {
+        return;
+    }
+
+    // 让 Qt 自己解析保存时生成的 body CSS，避免手工拆解带引号的字体名。
+    QTextDocument styleDocument;
+    styleDocument.setDefaultFont(m_textEdit->font());
+    styleDocument.setHtml(QStringLiteral("<html><body style=\"%1\">x</body></html>")
+                          .arg(style.toHtmlEscaped()));
+
+    QTextCursor cursor(&styleDocument);
+    cursor.movePosition(QTextCursor::NextCharacter, QTextCursor::KeepAnchor);
+    QFont font = cursor.charFormat().font();
+    if (font.family().isEmpty())
+    {
+        return;
+    }
+
+    // 已有笔记的正文样式优先于全局设置；这里只同步编辑器基准和工具栏，不改正文格式。
+    m_textEdit->setFont(font);
+    m_textEdit->document()->setDefaultFont(font);
+    m_textEdit->setCurrentFont(font);
 }
 
 bool NoteWidget::save()

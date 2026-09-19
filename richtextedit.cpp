@@ -619,6 +619,16 @@ void RichTextEdit::inputMethodEvent(QInputMethodEvent *event)
     }
 }
 
+void RichTextEdit::insertFromMimeData(const QMimeData *source)
+{
+    QTextCursor cursor = textCursor();
+    cursor.beginEditBlock();
+    QxTextEdit::insertFromMimeData(source);
+    refreshChecklistFormats();
+    refreshCodeBlockFormats();
+    cursor.endEditBlock();
+}
+
 void RichTextEdit::sltImageRightClicked()
 {
     m_menu->popup(QCursor::pos());

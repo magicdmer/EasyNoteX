@@ -16,12 +16,6 @@
     <verstretch>0</verstretch>
    </sizepolicy>
   </property>
-  <property name="font">
-   <font>
-    <family>微软雅黑</family>
-    <pointsize>10</pointsize>
-   </font>
-  </property>
   <property name="windowTitle">
    <string>修改页面标题</string>
   </property>
@@ -33,12 +27,6 @@
      <width>41</width>
      <height>16</height>
     </rect>
-   </property>
-   <property name="font">
-    <font>
-     <family>微软雅黑</family>
-     <pointsize>10</pointsize>
-    </font>
    </property>
    <property name="text">
     <string>标题 :</string>
@@ -52,12 +40,6 @@
      <width>261</width>
      <height>31</height>
     </rect>
-   </property>
-   <property name="font">
-    <font>
-     <family>微软雅黑</family>
-     <pointsize>10</pointsize>
-    </font>
    </property>
   </widget>
   <widget class="QPushButton" name="pushButtonOk">

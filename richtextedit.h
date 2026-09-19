@@ -36,6 +36,7 @@ protected:
     void mousePressEvent(QMouseEvent *event) override;
     void keyPressEvent(QKeyEvent *event) override;
     void inputMethodEvent(QInputMethodEvent *event) override;
+    void insertFromMimeData(const QMimeData *source) override;
 
 private:
     static bool blockHasChecklistPrefix(const QTextBlock &block);
