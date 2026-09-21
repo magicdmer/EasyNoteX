@@ -33,6 +33,7 @@ QString defaultGlobalHotkey();
 QString defaultTableShortcut();
 QString defaultChecklistShortcut();
 QString defaultCodeBlockShortcut();
+QString defaultHorizontalRuleShortcut();
 QString codeBlockFontFamily();
 QColor codeBlockBackgroundColor();
 QColor codeBlockBorderColor();

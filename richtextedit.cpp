@@ -521,6 +521,59 @@ void RichTextEdit::refreshCodeBlockFormats()
     applyCodeBlockInputFormat();
 }
 
+bool RichTextEdit::selectionTouchesCodeBlock() const
+{
+    QTextCursor cursor = textCursor();
+    int startPosition = cursor.selectionStart();
+    int endPosition = cursor.selectionEnd();
+    if (cursor.hasSelection() && endPosition > startPosition)
+    {
+        endPosition--;
+    }
+
+    for (QTextBlock block = document()->findBlock(qMax(0, startPosition));
+         block.isValid() && block.position() <= endPosition;
+         block = block.next())
+    {
+        QTextCursor blockCursor(block);
+        if (isCodeBlockTable(blockCursor.currentTable()))
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool RichTextEdit::canInsertHorizontalRule() const
+{
+    QTextCursor cursor = textCursor();
+    if (cursor.hasSelection() || !cursor.block().text().trimmed().isEmpty())
+    {
+        return false;
+    }
+
+    // 表格边界上的 cursor.currentTable() 可能为空，改用 block 的起始位置确认其所属 frame。
+    QTextCursor blockCursor(cursor.block());
+    if (blockCursor.currentTable())
+    {
+        return false;
+    }
+
+    // Qt 会在表格后保留一个尾随空段落；该段落用于离开表格，不作为可插入分割线的普通空行。
+    QTextBlock previousBlock = cursor.block().previous();
+    if (previousBlock.isValid())
+    {
+        QTextCursor previousCursor(previousBlock);
+        if (previousCursor.currentTable())
+        {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 bool RichTextEdit::eventFilter(QObject *watched, QEvent *event)
 {
     if (watched == qApp && event->type() == QEvent::ApplicationPaletteChange)

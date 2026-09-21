@@ -35,6 +35,7 @@ public:
     QString m_tableShortcut;
     QString m_checklistShortcut;
     QString m_codeBlockShortcut;
+    QString m_horizontalRuleShortcut;
     int m_sort_type;
 
     QFont m_defaultFont;

@@ -41,6 +41,7 @@ SetDialog::SetDialog(QWidget *parent) :
     QString tableShortcut = m_setting->value("shortcut_table", defaultTableShortcut()).toString();
     QString checklistShortcut = m_setting->value("shortcut_checklist", defaultChecklistShortcut()).toString();
     QString codeBlockShortcut = m_setting->value("shortcut_codeblock", defaultCodeBlockShortcut()).toString();
+    QString horizontalRuleShortcut = m_setting->value("shortcut_horizontalrule", defaultHorizontalRuleShortcut()).toString();
 
     ui->checkBoxCloseToTray->setChecked(closeToTray);
     ui->checkBoxMiniToTray->setChecked(minToTray);
@@ -50,6 +51,7 @@ SetDialog::SetDialog(QWidget *parent) :
     ui->keySequenceEditTable->setKeySequence(QKeySequence(tableShortcut));
     ui->keySequenceEditChecklist->setKeySequence(QKeySequence(checklistShortcut));
     ui->keySequenceEditCodeBlock->setKeySequence(QKeySequence(codeBlockShortcut));
+    ui->keySequenceEditHorizontalRule->setKeySequence(QKeySequence(horizontalRuleShortcut));
     const bool uos = isUos();
     ui->keySequenceEdit->setVisible(!uos);
     ui->labelShortcutHint->setVisible(uos);
@@ -155,6 +157,7 @@ void SetDialog::sltButtonOkClicked()
     m_tableShortcut = ui->keySequenceEditTable->keySequence().toString();
     m_checklistShortcut = ui->keySequenceEditChecklist->keySequence().toString();
     m_codeBlockShortcut = ui->keySequenceEditCodeBlock->keySequence().toString();
+    m_horizontalRuleShortcut = ui->keySequenceEditHorizontalRule->keySequence().toString();
     m_sort_type = ui->comboBox->currentIndex();
 
     m_setting->setValue("close_to_tray",m_closeToTray);
@@ -165,6 +168,7 @@ void SetDialog::sltButtonOkClicked()
     m_setting->setValue("shortcut_table", m_tableShortcut);
     m_setting->setValue("shortcut_checklist", m_checklistShortcut);
     m_setting->setValue("shortcut_codeblock", m_codeBlockShortcut);
+    m_setting->setValue("shortcut_horizontalrule", m_horizontalRuleShortcut);
 
     m_setting->setValue("/Editor/font", m_defaultFont.toString());
     m_setting->setValue("/Editor/pen_color", m_defaultPen.isValid() ? m_defaultPen.name() : QString());

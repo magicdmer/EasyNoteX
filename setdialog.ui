@@ -342,6 +342,16 @@
           </property>
          </widget>
         </item>
+        <item row="3" column="0">
+         <widget class="QLabel" name="labelHorizontalRuleShortcut">
+          <property name="text">
+           <string>插入分割线：</string>
+          </property>
+         </widget>
+        </item>
+        <item row="3" column="1">
+         <widget class="QKeySequenceEdit" name="keySequenceEditHorizontalRule"/>
+        </item>
        </layout>
       </widget>
      </item>

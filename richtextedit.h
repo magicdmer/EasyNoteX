@@ -26,6 +26,8 @@ public:
     void refreshImageResources();
     void refreshChecklistFormats();
     void refreshCodeBlockFormats();
+    bool canInsertHorizontalRule() const;
+    bool selectionTouchesCodeBlock() const;
 
 public slots:
     void sltImageRightClicked();

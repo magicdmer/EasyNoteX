@@ -101,6 +101,24 @@ QIcon NoteWidget::codeBlockButtonIcon() const
     return QIcon(pix);
 }
 
+QIcon NoteWidget::horizontalRuleButtonIcon() const
+{
+    QPixmap pix(20, 20);
+    pix.fill(Qt::transparent);
+
+    QPainter painter(&pix);
+    painter.setRenderHint(QPainter::Antialiasing, false);
+
+    QPen pen(QApplication::palette().color(QPalette::ButtonText));
+    pen.setWidth(1);
+    pen.setCosmetic(true);
+    painter.setPen(pen);
+    painter.drawLine(2, 10, 17, 10);
+    painter.end();
+
+    return QIcon(pix);
+}
+
 void NoteWidget::removeRichTextSourceWhitespace(QDomNode node)
 {
     // Qt 的 DOM 缩进换行会被 QTextEdit 当作 pre-wrap 文本显示，待办项内联 span 会因此重开后分行。
@@ -170,12 +188,15 @@ NoteWidget::NoteWidget(QWidget *parent) :
     m_tableShortcut = new QShortcut(m_textEdit);
     m_checklistShortcut = new QShortcut(m_textEdit);
     m_codeBlockShortcut = new QShortcut(m_textEdit);
+    m_horizontalRuleShortcut = new QShortcut(m_textEdit);
     m_tableShortcut->setContext(Qt::WidgetWithChildrenShortcut);
     m_checklistShortcut->setContext(Qt::WidgetWithChildrenShortcut);
     m_codeBlockShortcut->setContext(Qt::WidgetWithChildrenShortcut);
+    m_horizontalRuleShortcut->setContext(Qt::WidgetWithChildrenShortcut);
     connect(m_tableShortcut, SIGNAL(activated()), this, SIGNAL(sigInsertTableRequested()));
     connect(m_checklistShortcut, SIGNAL(activated()), this, SLOT(sltInsertChecklist()));
     connect(m_codeBlockShortcut, SIGNAL(activated()), this, SLOT(sltInsertCodeBlock()));
+    connect(m_horizontalRuleShortcut, SIGNAL(activated()), this, SLOT(sltInsertHorizontalRule()));
 
     m_textChanged = false;
 
@@ -208,12 +229,15 @@ NoteWidget::NoteWidget(QWidget *parent,QString noteName, QString groupName, QStr
     m_tableShortcut = new QShortcut(m_textEdit);
     m_checklistShortcut = new QShortcut(m_textEdit);
     m_codeBlockShortcut = new QShortcut(m_textEdit);
+    m_horizontalRuleShortcut = new QShortcut(m_textEdit);
     m_tableShortcut->setContext(Qt::WidgetWithChildrenShortcut);
     m_checklistShortcut->setContext(Qt::WidgetWithChildrenShortcut);
     m_codeBlockShortcut->setContext(Qt::WidgetWithChildrenShortcut);
+    m_horizontalRuleShortcut->setContext(Qt::WidgetWithChildrenShortcut);
     connect(m_tableShortcut, SIGNAL(activated()), this, SIGNAL(sigInsertTableRequested()));
     connect(m_checklistShortcut, SIGNAL(activated()), this, SLOT(sltInsertChecklist()));
     connect(m_codeBlockShortcut, SIGNAL(activated()), this, SLOT(sltInsertCodeBlock()));
+    connect(m_horizontalRuleShortcut, SIGNAL(activated()), this, SLOT(sltInsertHorizontalRule()));
 
     m_noteName = noteName;
     m_group = groupName;
@@ -254,7 +278,8 @@ NoteWidget::~NoteWidget()
     delete ui;
 }
 
-void NoteWidget::setEditorShortcuts(const QString& tableShortcut, const QString& checklistShortcut, const QString& codeBlockShortcut)
+void NoteWidget::setEditorShortcuts(const QString& tableShortcut, const QString& checklistShortcut,
+                                    const QString& codeBlockShortcut, const QString& horizontalRuleShortcut)
 {
     if (m_tableShortcut)
     {
@@ -267,6 +292,10 @@ void NoteWidget::setEditorShortcuts(const QString& tableShortcut, const QString&
     if (m_codeBlockShortcut)
     {
         m_codeBlockShortcut->setKey(QKeySequence(codeBlockShortcut));
+    }
+    if (m_horizontalRuleShortcut)
+    {
+        m_horizontalRuleShortcut->setKey(QKeySequence(horizontalRuleShortcut));
     }
 }
 
@@ -318,6 +347,13 @@ void NoteWidget::buildToolbar()
     m_codeBlockBtn->setIconSize(QSize(20, 20));
     m_codeBlockBtn->setToolTip(tr("插入代码块"));
 
+    m_horizontalRuleBtn = new QToolButton(bar);
+    m_horizontalRuleBtn->setFixedSize(30, 26);
+    m_horizontalRuleBtn->setToolButtonStyle(Qt::ToolButtonIconOnly);
+    m_horizontalRuleBtn->setIcon(horizontalRuleButtonIcon());
+    m_horizontalRuleBtn->setIconSize(QSize(20, 20));
+    m_horizontalRuleBtn->setToolTip(tr("插入分割线"));
+
     m_penBtn = new QToolButton(bar);
     m_penBtn->setFixedSize(26, 26);
     m_penBtn->setToolButtonStyle(Qt::ToolButtonIconOnly);
@@ -338,6 +374,7 @@ void NoteWidget::buildToolbar()
     h->addWidget(m_tableBtn);
     h->addWidget(m_checklistBtn);
     h->addWidget(m_codeBlockBtn);
+    h->addWidget(m_horizontalRuleBtn);
     h->addStretch(1);
 
     m_textEdit->setFrameShape(QFrame::NoFrame);
@@ -353,8 +390,11 @@ void NoteWidget::buildToolbar()
     connect(m_tableBtn, SIGNAL(clicked()), this, SIGNAL(sigInsertTableRequested()));
     connect(m_checklistBtn, SIGNAL(clicked()), this, SLOT(sltInsertChecklist()));
     connect(m_codeBlockBtn, SIGNAL(clicked()), this, SLOT(sltInsertCodeBlock()));
+    connect(m_horizontalRuleBtn, SIGNAL(clicked()), this, SLOT(sltInsertHorizontalRule()));
     connect(m_penBtn, SIGNAL(clicked()), this, SLOT(sltPickPenColor()));
     connect(m_paperBtn, SIGNAL(clicked()), this, SLOT(sltPickPaperColor()));
+    connect(m_textEdit, SIGNAL(cursorPositionChanged()), this, SLOT(sltUpdateStructureButtons()));
+    connect(m_textEdit, SIGNAL(selectionChanged()), this, SLOT(sltUpdateStructureButtons()));
 }
 
 void NoteWidget::sltFilterEntries()
@@ -432,6 +472,11 @@ void NoteWidget::sltBoldToggled(bool bold)
 
 void NoteWidget::sltInsertChecklist()
 {
+    if (m_textEdit->selectionTouchesCodeBlock())
+    {
+        return;
+    }
+
     QTextCursor cursor = m_textEdit->textCursor();
     QTextDocument* doc = m_textEdit->document();
     const QString prefix = checklistPrefix(false);
@@ -575,6 +620,52 @@ void NoteWidget::sltInsertCodeBlock()
 
     m_textEdit->setTextCursor(cellCursor);
     m_textEdit->setFocus();
+}
+
+void NoteWidget::sltInsertHorizontalRule()
+{
+    if (!m_textEdit->canInsertHorizontalRule())
+    {
+        return;
+    }
+
+    QTextCursor cursor = m_textEdit->textCursor();
+    QTextBlockFormat bodyBlockFormat = cursor.blockFormat();
+    bodyBlockFormat.clearProperty(QTextFormat::BlockTrailingHorizontalRulerWidth);
+
+    QTextCharFormat bodyFormat = cursor.charFormat();
+    QFont bodyFont = m_textEdit->font();
+    bodyFormat.setFont(bodyFont);
+    setTextCharFormatFontFamily(bodyFormat, bodyFont.family());
+    bodyFormat.setFontStrikeOut(false);
+    if (m_penColor.isValid())
+    {
+        bodyFormat.setForeground(m_penColor);
+    }
+
+    // Qt 会把该块格式稳定保存为 <hr>，下一段必须清除属性，避免正文继续生成分割线。
+    QTextBlockFormat ruleFormat = bodyBlockFormat;
+    ruleFormat.setProperty(QTextFormat::BlockTrailingHorizontalRulerWidth,
+                           QTextLength(QTextLength::PercentageLength, 100));
+
+    cursor.beginEditBlock();
+    cursor.movePosition(QTextCursor::StartOfBlock);
+    cursor.movePosition(QTextCursor::EndOfBlock, QTextCursor::KeepAnchor);
+    cursor.removeSelectedText();
+    cursor.setBlockFormat(ruleFormat);
+    cursor.movePosition(QTextCursor::EndOfBlock);
+    cursor.insertBlock(bodyBlockFormat, bodyFormat);
+    cursor.endEditBlock();
+
+    m_textEdit->setTextCursor(cursor);
+    m_textEdit->setFocus();
+}
+
+void NoteWidget::sltUpdateStructureButtons()
+{
+    bool touchesCodeBlock = m_textEdit->selectionTouchesCodeBlock();
+    m_checklistBtn->setEnabled(!touchesCodeBlock);
+    m_horizontalRuleBtn->setEnabled(m_textEdit->canInsertHorizontalRule());
 }
 
 void NoteWidget::sltPickPenColor()
@@ -967,6 +1058,7 @@ void NoteWidget::syncToolbar()
     }
     updateColorButton(m_penBtn, m_penColor, false);
     updateColorButton(m_paperBtn, m_paperColor, true);
+    sltUpdateStructureButtons();
 }
 
 void NoteWidget::updateColorButton(QToolButton* button, const QColor& color, bool isBackground)
@@ -1018,7 +1110,21 @@ void NoteWidget::setTabWidth(int width)
 
 bool NoteWidget::isEmpty()
 {
-    return m_textEdit->toPlainText().trimmed().isEmpty();
+    if (!m_textEdit->toPlainText().trimmed().isEmpty())
+    {
+        return false;
+    }
+
+    for (QTextBlock block = m_textEdit->document()->begin(); block.isValid(); block = block.next())
+    {
+        // 分割线不会出现在 toPlainText() 中，但单独一条分割线仍属于有效笔记内容。
+        if (block.blockFormat().hasProperty(QTextFormat::BlockTrailingHorizontalRulerWidth))
+        {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 void NoteWidget::deletefile()

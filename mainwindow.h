@@ -200,6 +200,7 @@ private:
     QString m_tableShortcut;
     QString m_checklistShortcut;
     QString m_codeBlockShortcut;
+    QString m_horizontalRuleShortcut;
     bool m_can_exit;
     QAction* m_action_new;
     QAction* m_action_rename;

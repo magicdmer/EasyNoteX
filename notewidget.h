@@ -53,7 +53,8 @@ public:
     bool save();
     void dealBackTab();
     void insertTable(int row, int col, int percent);
-    void setEditorShortcuts(const QString& tableShortcut, const QString& checklistShortcut, const QString& codeBlockShortcut);
+    void setEditorShortcuts(const QString& tableShortcut, const QString& checklistShortcut,
+                            const QString& codeBlockShortcut, const QString& horizontalRuleShortcut);
 
 signals:
     void sigInsertTableRequested();
@@ -66,14 +67,19 @@ public slots:
     void sltBoldToggled(bool bold);
     void sltInsertChecklist();
     void sltInsertCodeBlock();
+    void sltInsertHorizontalRule();
     void sltPickPenColor();
     void sltPickPaperColor();
+
+private slots:
+    void sltUpdateStructureButtons();
 
 private:
     void buildToolbar();
     QIcon tableButtonIcon() const;
     QIcon checklistButtonIcon() const;
     QIcon codeBlockButtonIcon() const;
+    QIcon horizontalRuleButtonIcon() const;
     void applyCharFormatToWholeNote(const QTextCharFormat& fmt);
     QString removeInvalidRichTextChars(const QString& text) const;
     void removeRichTextSourceWhitespace(QDomNode node);
@@ -95,6 +101,7 @@ private:
     QShortcut* m_tableShortcut;
     QShortcut* m_checklistShortcut;
     QShortcut* m_codeBlockShortcut;
+    QShortcut* m_horizontalRuleShortcut;
 
     // 当前便签的整篇样式（贴身工具条）
     QFontComboBox* m_fontCombo;
@@ -103,6 +110,7 @@ private:
     QToolButton* m_tableBtn;
     QToolButton* m_checklistBtn;
     QToolButton* m_codeBlockBtn;
+    QToolButton* m_horizontalRuleBtn;
     QToolButton* m_penBtn;
     QToolButton* m_paperBtn;
     QColor m_penColor;

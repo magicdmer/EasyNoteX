@@ -181,6 +181,7 @@ MainWindow::MainWindow(QWidget *parent)
         m_setting->setValue("shortcut_table", defaultTableShortcut());
         m_setting->setValue("shortcut_checklist", defaultChecklistShortcut());
         m_setting->setValue("shortcut_codeblock", defaultCodeBlockShortcut());
+        m_setting->setValue("shortcut_horizontalrule", defaultHorizontalRuleShortcut());
         m_setting->setValue("last_open_notebook",tr("我的记事本"));
         QFont font("微软雅黑",14);
         m_setting->setValue("/Editor/font",font.toString());
@@ -196,6 +197,7 @@ MainWindow::MainWindow(QWidget *parent)
         m_tableShortcut = defaultTableShortcut();
         m_checklistShortcut = defaultChecklistShortcut();
         m_codeBlockShortcut = defaultCodeBlockShortcut();
+        m_horizontalRuleShortcut = defaultHorizontalRuleShortcut();
         m_sort_type = SORT_BY_NAME;
     }
     else
@@ -229,6 +231,7 @@ MainWindow::MainWindow(QWidget *parent)
         m_tableShortcut = m_setting->value("shortcut_table", defaultTableShortcut()).toString();
         m_checklistShortcut = m_setting->value("shortcut_checklist", defaultChecklistShortcut()).toString();
         m_codeBlockShortcut = m_setting->value("shortcut_codeblock", defaultCodeBlockShortcut()).toString();
+        m_horizontalRuleShortcut = m_setting->value("shortcut_horizontalrule", defaultHorizontalRuleShortcut()).toString();
         int keep_top = m_setting->value("keep_top").toInt(0);
         if (keep_top)
         {
@@ -682,7 +685,8 @@ void MainWindow::connectNoteWidgetSignals(NoteWidget *noteWidget)
     }
 
     connect(noteWidget, SIGNAL(sigInsertTableRequested()), this, SLOT(sltActionInsertTable()));
-    noteWidget->setEditorShortcuts(m_tableShortcut, m_checklistShortcut, m_codeBlockShortcut);
+    noteWidget->setEditorShortcuts(m_tableShortcut, m_checklistShortcut, m_codeBlockShortcut,
+                                   m_horizontalRuleShortcut);
 }
 
 void MainWindow::applyEditorShortcuts()
@@ -692,7 +696,8 @@ void MainWindow::applyEditorShortcuts()
         NoteWidget* widget = (NoteWidget*)ui->tabWidgetNote->widget(i);
         if (widget)
         {
-            widget->setEditorShortcuts(m_tableShortcut, m_checklistShortcut, m_codeBlockShortcut);
+            widget->setEditorShortcuts(m_tableShortcut, m_checklistShortcut, m_codeBlockShortcut,
+                                       m_horizontalRuleShortcut);
         }
     }
 }
@@ -1223,6 +1228,7 @@ void MainWindow::sltSet()
         m_tableShortcut = dlg.m_tableShortcut;
         m_checklistShortcut = dlg.m_checklistShortcut;
         m_codeBlockShortcut = dlg.m_codeBlockShortcut;
+        m_horizontalRuleShortcut = dlg.m_horizontalRuleShortcut;
         applyEditorShortcuts();
 
         for (int i = 0; i < ui->tabWidgetNote->count(); i++)

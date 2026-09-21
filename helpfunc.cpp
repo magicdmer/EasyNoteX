@@ -290,6 +290,11 @@ QString defaultCodeBlockShortcut()
     return QStringLiteral("Ctrl+k");
 }
 
+QString defaultHorizontalRuleShortcut()
+{
+    return QStringLiteral("Ctrl+L");
+}
+
 QString codeBlockFontFamily()
 {
     return QStringLiteral("Consolas");
